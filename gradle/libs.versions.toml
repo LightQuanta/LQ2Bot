@@ -1,0 +1,21 @@
+[versions]
+kotlin = "2.0.0"
+simbot = "4.9.0"
+simbot-onebot = "1.5.0"
+ktor = "2.3.12"
+spring = "3.3.3"
+spring-management = "1.1.6"
+
+[libraries]
+spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter" }
+kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlin" }
+simbot-spring = { group = "love.forte.simbot", name = "simbot-core-spring-boot-starter", version.ref = "simbot" }
+simbot-component-onebot = { group = "love.forte.simbot.component", name = "simbot-component-onebot-v11-core", version.ref = "simbot-onebot" }
+ktor-client-java = { group = "io.ktor", name = "ktor-client-java", version.ref = "ktor" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-plugin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+spring = { id = "org.springframework.boot", version.ref = "spring" }
+spring-management = { id = "io.spring.dependency-management", version.ref = "spring-management" }
+

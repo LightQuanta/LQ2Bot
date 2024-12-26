@@ -1,0 +1,3 @@
+simbot:
+  application:
+    application-launch-mode: thread
