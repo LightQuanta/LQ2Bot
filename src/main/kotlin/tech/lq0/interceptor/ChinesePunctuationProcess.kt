@@ -17,9 +17,7 @@ data object ChinesePunctuationConversionFactory : AnnotationEventInterceptorFact
     override fun create(context: AnnotationEventInterceptorFactory.Context): AnnotationEventInterceptorFactory.Result {
         return AnnotationEventInterceptorFactory.Result.build {
             interceptor(ChinesePunctuationInterceptor)
-            configuration {
-                priority = context.priority
-            }
+            configuration { priority = context.priority }
         }
     }
 

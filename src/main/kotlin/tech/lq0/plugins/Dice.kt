@@ -6,12 +6,13 @@ import love.forte.simbot.quantcat.common.annotations.FilterValue
 import love.forte.simbot.quantcat.common.annotations.Listener
 import org.springframework.stereotype.Component
 import tech.lq0.interceptor.ChinesePunctuationReplace
+import tech.lq0.interceptor.GroupSwitch
 
 @Component
 class Dice {
-    // TODO 群聊实现，启用/禁用处理等
 
     @Listener
+    @GroupSwitch("Dice")
     @ChinesePunctuationReplace
     @Filter("\\.?dice( {{max,\\d{1,10}}}d{{count,\\d{1,10}}})?")
     suspend fun OneBotMessageEvent.dice(
