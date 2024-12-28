@@ -6,6 +6,7 @@ import love.forte.simbot.event.EventResult
 import love.forte.simbot.quantcat.common.annotations.Interceptor
 import love.forte.simbot.quantcat.common.interceptor.AnnotationEventInterceptorFactory
 import love.forte.simbot.spring.configuration.listener.KFunctionEventListener
+import tech.lq0.utils.readJSONConfigAs
 import kotlin.reflect.full.findAnnotation
 
 
@@ -26,6 +27,10 @@ annotation class GroupSwitch(
     val defaultEnabled: Boolean = true,
 )
 
+val groupPluginConfig by lazy {
+    readJSONConfigAs<Map<String, Set<String>>>("PluginSwitch", "config.json")
+}
+
 data object GroupSwitchFactory : AnnotationEventInterceptorFactory {
     override fun create(context: AnnotationEventInterceptorFactory.Context): AnnotationEventInterceptorFactory.Result {
         return AnnotationEventInterceptorFactory.Result.build {
@@ -36,8 +41,9 @@ data object GroupSwitchFactory : AnnotationEventInterceptorFactory {
 
     private data object GroupSwitchInterceptor : EventInterceptor {
         override suspend fun EventInterceptor.Context.intercept(): EventResult {
+            val event = eventListenerContext.event
             // 只处理群消息
-            if (eventListenerContext.event !is OneBotGroupMessageEvent) return invoke()
+            if (event !is OneBotGroupMessageEvent) return invoke()
 
             // 查找GroupSwitch注解
             val listener = eventListenerContext.listener
@@ -50,9 +56,12 @@ data object GroupSwitchFactory : AnnotationEventInterceptorFactory {
             val defaultEnabled = groupSwitch?.defaultEnabled ?: true
             val pluginID = groupSwitch?.value ?: return EventResult.invalid()
 
-//            println(pluginID)
-            // TODO 实现功能启用检查
-            return EventResult.empty()
+            val enabled = groupPluginConfig[event.groupId.toString()]?.contains(pluginID) ?: defaultEnabled
+            return if (enabled) {
+                invoke()
+            } else {
+                EventResult.invalid()
+            }
 
         }
     }
