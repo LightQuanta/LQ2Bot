@@ -1,13 +1,12 @@
 package tech.lq0.interceptor
 
-import kotlinx.serialization.Serializable
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.event.EventInterceptor
 import love.forte.simbot.event.EventResult
 import love.forte.simbot.quantcat.common.annotations.Interceptor
 import love.forte.simbot.quantcat.common.interceptor.AnnotationEventInterceptorFactory
 import love.forte.simbot.spring.configuration.listener.KFunctionEventListener
-import tech.lq0.utils.readJSONConfigAs
+import tech.lq0.utils.groupPluginConfig
 import kotlin.reflect.full.findAnnotation
 
 
@@ -27,16 +26,6 @@ annotation class GroupSwitch(
      */
     val defaultEnabled: Boolean = true,
 )
-
-@Serializable
-data class PluginConfig(
-    val enabled: Set<String>,
-    val disabled: Set<String>,
-)
-
-val groupPluginConfig by lazy {
-    readJSONConfigAs<Map<String, PluginConfig>>("PluginSwitch", "config.json")
-}
 
 data object GroupSwitchFactory : AnnotationEventInterceptorFactory {
     override fun create(context: AnnotationEventInterceptorFactory.Context): AnnotationEventInterceptorFactory.Result {
