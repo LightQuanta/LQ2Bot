@@ -20,35 +20,43 @@ class GroupSwitchControl {
     @Listener
     @ChinesePunctuationReplace
     @RequireAdmin
-    @Filter("!{{operation,(enable|disable|reset)}} {{plugin,\\w+}}")
+    @Filter("!{{operation,(enable|disable|reset)}} {{plugins,\\w+([, ]\\w+)*}}")
     suspend fun OneBotGroupMessageEvent.control(
         @FilterValue("operation") operation: String,
-        @FilterValue("plugin") pluginID: String,
+        @FilterValue("plugins") pluginIDStr: String,
     ) {
         val groupID = content().id.toString()
         if (groupPluginConfig[groupID] == null) {
             groupPluginConfig[groupID] = PluginConfig()
         }
 
-        when (operation) {
-            "reset" -> {
-                groupPluginConfig[groupID]!!.enabled.remove(pluginID)
-                groupPluginConfig[groupID]!!.disabled.remove(pluginID)
-                directlySend("已重置插件$pluginID")
-            }
+        val pluginIDs = pluginIDStr.split(" ", ",")
+        for (pluginID in pluginIDs) {
+            when (operation) {
+                "reset" -> {
+                    groupPluginConfig[groupID]!!.enabled -= pluginID
+                    groupPluginConfig[groupID]!!.disabled -= pluginID
+                }
 
-            "enable" -> {
-                groupPluginConfig[groupID]!!.enabled.add(pluginID)
-                groupPluginConfig[groupID]!!.disabled.remove(pluginID)
-                directlySend("已启用插件$pluginID")
-            }
+                "enable" -> {
+                    groupPluginConfig[groupID]!!.enabled += pluginID
+                    groupPluginConfig[groupID]!!.disabled -= pluginID
+                }
 
-            "disable" -> {
-                groupPluginConfig[groupID]!!.disabled.add(pluginID)
-                groupPluginConfig[groupID]!!.enabled.remove(pluginID)
-                directlySend("已禁用插件$pluginID")
+                "disable" -> {
+                    groupPluginConfig[groupID]!!.disabled += pluginID
+                    groupPluginConfig[groupID]!!.enabled -= pluginID
+                }
             }
         }
+        directlySend(
+            when (operation) {
+                "reset" -> "已重置${pluginIDs.joinToString()}"
+                "enable" -> "已启用${pluginIDs.joinToString()}"
+                "disable" -> "已禁用${pluginIDs.joinToString()}"
+                else -> "未知操作"
+            }
+        )
 
         saveConfig("PluginSwitch", "config.json", Json.encodeToString(groupPluginConfig))
     }

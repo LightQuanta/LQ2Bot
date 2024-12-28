@@ -5,7 +5,7 @@ import love.forte.simbot.event.EventInterceptor
 import love.forte.simbot.event.EventResult
 import love.forte.simbot.quantcat.common.annotations.Interceptor
 import love.forte.simbot.quantcat.common.interceptor.AnnotationEventInterceptorFactory
-import tech.lq0.utils.userPermissionConfig
+import tech.lq0.utils.botPermissionConfig
 
 
 /**
@@ -27,7 +27,7 @@ data object RequireBotAdminFactory : AnnotationEventInterceptorFactory {
         override suspend fun EventInterceptor.Context.intercept(): EventResult {
             val event = eventListenerContext.event
 
-            return if (event is OneBotMessageEvent && userPermissionConfig.admin.contains(event.authorId.toString())) {
+            return if (event is OneBotMessageEvent && event.authorId.toString() in botPermissionConfig.admin) {
                 invoke()
             } else {
                 EventResult.invalid()

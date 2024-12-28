@@ -5,7 +5,7 @@ import love.forte.simbot.quantcat.common.annotations.Filter
 import love.forte.simbot.quantcat.common.annotations.FilterValue
 import love.forte.simbot.quantcat.common.annotations.Listener
 import org.springframework.stereotype.Component
-import tech.lq0.interceptor.GroupSwitch
+import tech.lq0.interceptor.FunctionSwitch
 import tech.lq0.utils.directlySend
 import kotlin.math.absoluteValue
 
@@ -13,7 +13,7 @@ import kotlin.math.absoluteValue
 class HomoCalc {
 
     @Listener
-    @GroupSwitch("HomoCalc")
+    @FunctionSwitch("HomoCalc")
     @Filter("恶臭论证 {{count,-?\\d+}}")
     suspend fun OneBotMessageEvent.calc(
         @FilterValue("count") number: String,

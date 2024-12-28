@@ -14,9 +14,11 @@ val groupPluginConfig by lazy {
 
 @Serializable
 data class UserPermissionConfig(
-    val admin: Set<String> = setOf(),
+    val admin: MutableSet<String> = mutableSetOf(),
+    val groupBlackList: MutableSet<String> = mutableSetOf(),
+    val memberBlackList: MutableSet<String> = mutableSetOf(),
 )
 
-val userPermissionConfig by lazy {
+val botPermissionConfig by lazy {
     readJSONConfigAs<UserPermissionConfig>("BotConfig", "permission.json") ?: UserPermissionConfig()
 }

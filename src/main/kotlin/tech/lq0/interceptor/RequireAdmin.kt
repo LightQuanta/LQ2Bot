@@ -6,7 +6,7 @@ import love.forte.simbot.event.EventInterceptor
 import love.forte.simbot.event.EventResult
 import love.forte.simbot.quantcat.common.annotations.Interceptor
 import love.forte.simbot.quantcat.common.interceptor.AnnotationEventInterceptorFactory
-import tech.lq0.utils.userPermissionConfig
+import tech.lq0.utils.botPermissionConfig
 
 
 /**
@@ -29,7 +29,7 @@ data object RequireAdminFactory : AnnotationEventInterceptorFactory {
             val event = eventListenerContext.event
 
             return if (
-                event is OneBotMessageEvent && userPermissionConfig.admin.contains(event.authorId.toString())
+                event is OneBotMessageEvent && event.authorId.toString() in botPermissionConfig.admin
                 || event is OneBotNormalGroupMessageEvent && event.author().role?.isAdmin == true
             ) {
                 invoke()
