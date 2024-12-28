@@ -1,5 +1,6 @@
 package tech.lq0.interceptor
 
+import kotlinx.serialization.Serializable
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.event.EventInterceptor
 import love.forte.simbot.event.EventResult
@@ -27,8 +28,14 @@ annotation class GroupSwitch(
     val defaultEnabled: Boolean = true,
 )
 
+@Serializable
+data class PluginConfig(
+    val enabled: Set<String>,
+    val disabled: Set<String>,
+)
+
 val groupPluginConfig by lazy {
-    readJSONConfigAs<Map<String, Set<String>>>("PluginSwitch", "config.json")
+    readJSONConfigAs<Map<String, PluginConfig>>("PluginSwitch", "config.json")
 }
 
 data object GroupSwitchFactory : AnnotationEventInterceptorFactory {
@@ -56,7 +63,10 @@ data object GroupSwitchFactory : AnnotationEventInterceptorFactory {
             val defaultEnabled = groupSwitch?.defaultEnabled ?: true
             val pluginID = groupSwitch?.value ?: return EventResult.invalid()
 
-            val enabled = groupPluginConfig[event.groupId.toString()]?.contains(pluginID) ?: defaultEnabled
+            val groupConfig = groupPluginConfig[event.groupId.toString()]
+            if (groupConfig?.disabled?.contains(pluginID) == true) return EventResult.invalid()
+
+            val enabled = groupConfig?.enabled?.contains(pluginID) ?: defaultEnabled
             return if (enabled) {
                 invoke()
             } else {
