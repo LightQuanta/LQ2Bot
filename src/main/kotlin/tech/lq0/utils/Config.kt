@@ -16,6 +16,7 @@ val groupPluginConfig by lazy {
 data class UserPermissionConfig(
     val admin: MutableSet<String> = mutableSetOf(),
     val groupBlackList: MutableSet<String> = mutableSetOf(),
+    val groupDisabledList: MutableSet<String> = mutableSetOf(),
     val memberBlackList: MutableSet<String> = mutableSetOf(),
 )
 

@@ -26,7 +26,7 @@ class BlackListControl {
         @FilterValue("operation") operation: String,
         @FilterValue("list") banList: String,
     ) {
-        // 禁止拉黑bot管理员
+        // 禁止bot管理员拉黑bot管理员
         val list = banList.split(",", " ").filter { it !in botPermissionConfig.admin }
         for (id in list) {
             if (operation == "ban") {
@@ -46,6 +46,9 @@ class BlackListControl {
         )
     }
 
+    /**
+     * 批量永久拉黑群聊，仅bot管理员可用
+     */
     @Listener
     @ChinesePunctuationReplace
     @RequireBotAdmin
@@ -73,16 +76,49 @@ class BlackListControl {
         )
     }
 
+    /**
+     * 批量在群里启用/禁用bot功能，仅限bot管理员可用
+     */
+    @Listener
+    @ChinesePunctuationReplace
+    @RequireBotAdmin
+    @Filter("!{{operation,(enable|disable)bot}} {{list,\\d+([, ]\\d+)*}}")
+    suspend fun OneBotMessageEvent.batchDisableGroup(
+        @FilterValue("operation") operation: String,
+        @FilterValue("list") banList: String,
+    ) {
+        val list = banList.split(",", " ")
+        for (id in list) {
+            if (operation == "enablebot") {
+                botPermissionConfig.groupDisabledList -= id
+            } else {
+                botPermissionConfig.groupDisabledList += id
+            }
+        }
+        saveConfig("BotConfig", "permission.json", Json.encodeToString(botPermissionConfig))
+
+        directlySend(
+            when (operation) {
+                "enablebot" -> "已在QQ群: ${list.joinToString()} 中禁用bot"
+                "disablebot" -> "已在QQ群: ${list.joinToString()} 中启用bot"
+                else -> "未知操作"
+            }
+        )
+    }
+
+    /**
+     * 在当前群启用/禁用bot功能，群管理员和bot管理员可用
+     */
     @Listener
     @ChinesePunctuationReplace
     @RequireAdmin
     @Filter("!{{operation,(enable|disable)bot}}")
-    suspend fun OneBotGroupMessageEvent.enableDisable(@FilterValue("operation") operation: String) {
+    suspend fun OneBotGroupMessageEvent.disableGroup(@FilterValue("operation") operation: String) {
         val groupID = content().id.toString()
         if (operation == "enablebot") {
-            botPermissionConfig.groupBlackList -= groupID
+            botPermissionConfig.groupDisabledList -= groupID
         } else {
-            botPermissionConfig.groupBlackList += groupID
+            botPermissionConfig.groupDisabledList += groupID
         }
 
         saveConfig("BotConfig", "permission.json", Json.encodeToString(botPermissionConfig))
