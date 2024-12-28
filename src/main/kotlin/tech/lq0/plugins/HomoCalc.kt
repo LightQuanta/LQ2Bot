@@ -6,6 +6,7 @@ import love.forte.simbot.quantcat.common.annotations.FilterValue
 import love.forte.simbot.quantcat.common.annotations.Listener
 import org.springframework.stereotype.Component
 import tech.lq0.interceptor.GroupSwitch
+import tech.lq0.utils.directlySend
 import kotlin.math.absoluteValue
 
 @Component
@@ -16,7 +17,7 @@ class HomoCalc {
     @Filter("恶臭论证 {{count,-?\\d+}}")
     suspend fun OneBotMessageEvent.calc(
         @FilterValue("count") number: String,
-    ) = reply(homoCalc(number))
+    ) = directlySend(homoCalc(number))
 
     val binSet = mapOf(
         1073741824 to "114514*((1+1)*4514+(11*(45-14)+(11-4+5-1-4)))+(11*4514+(114*5*14+(-(1-14)*5*14+(11-4-5+14))))",
