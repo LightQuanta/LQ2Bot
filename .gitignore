@@ -40,3 +40,6 @@ bin/
 
 # OneBot配置文件
 src/main/resources/simbot-bots/*
+
+# 测试用lq2config文件
+lq2config/**

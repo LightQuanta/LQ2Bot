@@ -15,6 +15,7 @@ ktor-client-java = { group = "io.ktor", name = "ktor-client-java", version.ref =
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-plugin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
 spring = { id = "org.springframework.boot", version.ref = "spring" }
 spring-management = { id = "io.spring.dependency-management", version.ref = "spring-management" }

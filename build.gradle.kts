@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.plugin.spring)
     alias(libs.plugins.spring)
     alias(libs.plugins.spring.management)
@@ -13,6 +14,7 @@ java {
 }
 
 repositories {
+    gradlePluginPortal()
     mavenCentral()
 }
 
@@ -21,6 +23,8 @@ dependencies {
     implementation(libs.kotlin.reflect)
     implementation(libs.simbot.spring)
     implementation(libs.simbot.component.onebot)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+
     runtimeOnly(libs.ktor.client.java)
 }
 
