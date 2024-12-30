@@ -23,3 +23,30 @@ data class UserPermissionConfig(
 val botPermissionConfig by lazy {
     readJSONConfigAs<UserPermissionConfig>("BotConfig", "permission.json") ?: UserPermissionConfig()
 }
+
+@Serializable
+enum class DetectType {
+    EQUAL, REGEX_MATCH, REGEX_REPLACE, STARTS_WITH
+}
+
+@Serializable
+data class SingleMeme(
+    val detectType: DetectType = DetectType.EQUAL,
+    val name: String,
+    val alias: MutableSet<String>? = mutableSetOf(),
+    val replyContent: LinkedHashSet<String> = LinkedHashSet(),
+    val whiteListGroups: MutableSet<String>? = mutableSetOf(),
+    val blackListGroups: MutableSet<String>? = mutableSetOf(),
+)
+
+@Serializable
+data class Meme(
+    val lastUpdateTime: Long = 0,
+    val admin: MutableSet<String> = mutableSetOf(),
+    val notificationReceiver: MutableSet<String> = mutableSetOf(),
+    val memes: MutableList<SingleMeme> = mutableListOf(),
+)
+
+val memeConfig by lazy {
+    readJSONConfigAs<Meme>("Meme", "meme.json") ?: Meme()
+}
