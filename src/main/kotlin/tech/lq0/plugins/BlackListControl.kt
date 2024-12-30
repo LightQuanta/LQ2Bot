@@ -13,6 +13,7 @@ import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.interceptor.RequireBotAdmin
 import tech.lq0.utils.botPermissionConfig
 import tech.lq0.utils.directlySend
+import tech.lq0.utils.groupViolationCount
 import tech.lq0.utils.saveConfig
 
 @Component
@@ -63,6 +64,8 @@ class BlackListControl {
                 botPermissionConfig.groupBlackList += id
             } else {
                 botPermissionConfig.groupBlackList -= id
+                groupViolationCount -= id
+                saveConfig("SensitiveWords", "violation.json", Json.encodeToString(groupViolationCount))
             }
         }
         saveConfig("BotConfig", "permission.json", Json.encodeToString(botPermissionConfig))

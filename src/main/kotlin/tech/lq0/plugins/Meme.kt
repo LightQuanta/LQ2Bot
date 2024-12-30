@@ -48,16 +48,24 @@ class Meme {
                 .any { keyword ->
                     when (it.detectType) {
                         DetectType.EQUAL -> text.lowercase() == keyword.lowercase()
-                        DetectType.STARTS_WITH -> text.startsWith(keyword)
+                        DetectType.STARTS_WITH -> text.lowercase().startsWith(keyword.lowercase())
                         DetectType.REGEX_MATCH,
                         DetectType.REGEX_REPLACE -> text.matches(Regex(keyword, RegexOption.IGNORE_CASE))
                     }
                 }
         }?.let {
             if (it.detectType != DetectType.REGEX_REPLACE) {
+                // 普通回复默认已经经过审核，故不启用敏感词检测
                 directlySend(it.replyContent.random())
             } else {
-                // TODO 敏感词检测
+                // 为正则替换类型Meme进行敏感词检测
+                if (text.isSensitive()) {
+                    // directlySend("（测试消息）检测到违规内容")
+                    val group = if (this is OneBotNormalGroupMessageEvent) this else null
+                    banMember(authorId.toString(), group?.content())
+                    return
+                }
+
                 val regex = Regex(it.name, RegexOption.IGNORE_CASE)
                 val index = regex.matchEntire(text)
                     ?.groups
@@ -211,6 +219,9 @@ class Meme {
         }
     }
 
+    /**
+     * 将Meme操纵请求转发给Meme管理员
+     */
     suspend fun OneBotMessageEvent.notifyAdmin() {
         (memeConfig.notificationReceiver - authorId.toString())
             .forEach {
@@ -230,6 +241,9 @@ class Meme {
         directlySend("已将建议转发给Bot管理员")
     }
 
+    /**
+     * 根据关键词查找有无对应Meme实例，未找到会回复相应提示
+     */
     suspend fun OneBotMessageEvent.findMemeInstance(keyword: String): SingleMeme? =
         memeConfig.memes.firstOrNull {
             keyword.lowercase() in setOf(
