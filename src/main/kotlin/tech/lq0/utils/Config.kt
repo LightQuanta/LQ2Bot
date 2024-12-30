@@ -34,14 +34,14 @@ data class SingleMeme(
     val detectType: DetectType = DetectType.EQUAL,
     val name: String,
     val alias: MutableSet<String>? = mutableSetOf(),
-    val replyContent: LinkedHashSet<String> = LinkedHashSet(),
+    val replyContent: LinkedHashSet<String> = linkedSetOf(),
     val whiteListGroups: MutableSet<String>? = mutableSetOf(),
     val blackListGroups: MutableSet<String>? = mutableSetOf(),
 )
 
 @Serializable
 data class Meme(
-    val lastUpdateTime: Long = 0,
+    var lastUpdateTime: Long = 0,
     val admin: MutableSet<String> = mutableSetOf(),
     val notificationReceiver: MutableSet<String> = mutableSetOf(),
     val memes: MutableList<SingleMeme> = mutableListOf(),
