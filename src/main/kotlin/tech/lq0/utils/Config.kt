@@ -33,7 +33,7 @@ enum class DetectType {
 data class SingleMeme(
     val detectType: DetectType = DetectType.EQUAL,
     val name: String,
-    val alias: MutableSet<String>? = mutableSetOf(),
+    var alias: MutableSet<String>? = mutableSetOf(),
     val replyContent: LinkedHashSet<String> = linkedSetOf(),
     val whiteListGroups: MutableSet<String>? = mutableSetOf(),
     val blackListGroups: MutableSet<String>? = mutableSetOf(),
