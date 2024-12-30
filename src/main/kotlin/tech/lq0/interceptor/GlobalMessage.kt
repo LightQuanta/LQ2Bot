@@ -15,6 +15,11 @@ class GlobalMessage @Autowired constructor(app: Application) {
             val event = this.event
             if (event !is OneBotMessageEvent) return@register EventResult.empty()
 
+            // 不拦截Bot管理员的消息
+            if (event.authorId.toString() in botPermissionConfig.admin) {
+                return@register EventResult.empty()
+            }
+
             // 忽视被拉黑用户和群聊的任何消息
             if (event.authorId.toString() in botPermissionConfig.memberBlackList) {
                 return@register EventResult.empty(true)
