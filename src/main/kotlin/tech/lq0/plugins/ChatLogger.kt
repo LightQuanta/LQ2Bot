@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class ChatLogger {
-    val logger = LoggerFactory.getLogger("chatLogger")
+    val logger = LoggerFactory.getLogger("CHAT")
 
     @Listener
     suspend fun OneBotMessageEvent.log() {

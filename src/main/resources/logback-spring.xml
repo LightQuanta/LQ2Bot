@@ -35,15 +35,15 @@
         </encoder>
     </appender>
 
-    <logger name="chatLogger" level="DEBUG">
+    <logger name="CHAT" level="DEBUG">
         <appender-ref ref="CHAT"/>
     </logger>
 
-    <logger name="banLogger" level="DEBUG">
+    <logger name="BAN" level="DEBUG">
         <appender-ref ref="BAN"/>
     </logger>
 
-    <logger name="memeLogger" level="DEBUG">
+    <logger name="MEME" level="DEBUG">
         <appender-ref ref="MEME"/>
     </logger>
 

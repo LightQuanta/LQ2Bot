@@ -28,7 +28,7 @@ val pinyinFormat = with(HanyuPinyinOutputFormat()) {
     return@with this
 }
 
-val logger = LoggerFactory.getLogger("banLogger")
+val logger = LoggerFactory.getLogger("BAN")
 
 /**
  * 拉黑指定成员

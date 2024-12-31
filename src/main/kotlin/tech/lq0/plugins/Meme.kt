@@ -21,7 +21,7 @@ import java.time.Instant
 @Component
 class Meme {
 
-    val logger = LoggerFactory.getLogger("memeLogger")
+    val logger = LoggerFactory.getLogger("MEME")
 
     /**
      * setrep预设回复数据缓存
