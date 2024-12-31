@@ -14,7 +14,7 @@ class Dice {
     @Listener
     @FunctionSwitch("Dice")
     @ChinesePunctuationReplace
-    @Filter("\\.?dice( {{max,\\d{1,10}}}d{{count,\\d{1,10}}})?")
+    @Filter("\\.?dice( {{count,\\d{1,10}}}d{{max,\\d{1,10}}})?")
     suspend fun OneBotMessageEvent.dice(
         @FilterValue("max") max: Int = 6,
         @FilterValue("count") count: Int = 1,
