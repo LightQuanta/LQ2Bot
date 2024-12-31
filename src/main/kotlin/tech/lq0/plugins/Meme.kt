@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import love.forte.simbot.common.id.StringID.Companion.ID
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotFriendMessageEvent
+import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
 import love.forte.simbot.logger.LoggerFactory
@@ -37,16 +38,6 @@ class Meme {
         val text = this.messageContent.plainText
         if (text.isNullOrEmpty()) return
 
-        // 预设回复处理
-        if (authorId.toString() in presetReplyInfo) {
-            val (keyword, reply) = presetReplyInfo[authorId.toString()]!!
-            if (keyword == text) {
-                directlySend(reply)
-                presetReplyInfo.remove(authorId.toString())
-                return
-            }
-        }
-
         memeConfig.memes.firstOrNull {
             listOf(it.name, *it.alias?.toTypedArray() ?: emptyArray())
                 .any { keyword ->
@@ -58,6 +49,23 @@ class Meme {
                     }
                 }
         }?.let {
+            // 群黑/白名单处理
+            if (this is OneBotGroupMessageEvent) {
+                if (it.whiteListGroups != null && groupId.toString() !in it.whiteListGroups
+                    || it.blackListGroups?.contains(groupId.toString()) == true
+                ) return
+            }
+
+            // 预设回复处理
+            if (authorId.toString() in presetReplyInfo) {
+                val (keyword, reply) = presetReplyInfo[authorId.toString()]!!
+                if (keyword == text) {
+                    directlySend(reply)
+                    presetReplyInfo.remove(authorId.toString())
+                    return
+                }
+            }
+
             if (it.detectType != DetectType.REGEX_REPLACE) {
                 // 普通回复默认已经经过审核，故不启用敏感词检测
                 directlySend(it.replyContent.random())
