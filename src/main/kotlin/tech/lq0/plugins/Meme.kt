@@ -6,6 +6,7 @@ import love.forte.simbot.common.id.StringID.Companion.ID
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotFriendMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
+import love.forte.simbot.logger.LoggerFactory
 import love.forte.simbot.message.toMessages
 import love.forte.simbot.message.toText
 import love.forte.simbot.quantcat.common.annotations.Filter
@@ -19,6 +20,9 @@ import java.time.Instant
 
 @Component
 class Meme {
+
+    val logger = LoggerFactory.getLogger("memeLogger")
+
     /**
      * setrep预设回复数据缓存
      * QQ号 -> (关键词, 预设回复)
@@ -88,6 +92,19 @@ class Meme {
         }
     }
 
+    suspend fun OneBotMessageEvent.logUpdate() {
+        val name = when (this) {
+            is OneBotNormalGroupMessageEvent -> author().name
+            is OneBotFriendMessageEvent -> content().name
+            else -> "未知用户"
+        }
+        val groupInfo = when (this) {
+            is OneBotNormalGroupMessageEvent -> "在群${content().name}(${content().id})中"
+            else -> ""
+        }
+        logger.info("管理员$name($authorId)${groupInfo}进行了更新操作：${messageContent.plainText}")
+    }
+
     @Listener
     @FunctionSwitch("Meme")
     @ChinesePunctuationReplace
@@ -99,7 +116,7 @@ class Meme {
         // TODO 图片添加支持
         val replies = reply.split("|")
         if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
-            val meme = findMemeInstance(keyword) ?: run {
+            val meme = findMemeInstance(keyword, false) ?: run {
                 val tempMeme = SingleMeme(name = keyword)
                 memeConfig.memes.add(tempMeme)
                 tempMeme
@@ -108,6 +125,7 @@ class Meme {
             memeConfig.lastUpdateTime = Instant.now().epochSecond
 
             saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
+            logUpdate()
             directlySend("已更新$keyword")
         } else {
             notifyAdmin()
@@ -130,6 +148,7 @@ class Meme {
             memeConfig.lastUpdateTime = Instant.now().epochSecond
 
             saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
+            logUpdate()
             directlySend("已更新$keyword")
         } else {
             notifyAdmin()
@@ -146,6 +165,7 @@ class Meme {
             memeConfig.memes.remove(meme)
             memeConfig.lastUpdateTime = Instant.now().epochSecond
             saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
+            logUpdate()
             directlySend("已移除$keyword")
         } else {
             notifyAdmin()
@@ -223,17 +243,24 @@ class Meme {
      * 将Meme操纵请求转发给Meme管理员
      */
     suspend fun OneBotMessageEvent.notifyAdmin() {
+        val name = when (this) {
+            is OneBotNormalGroupMessageEvent -> author().name
+            is OneBotFriendMessageEvent -> content().name
+            else -> "未知用户"
+        }
+        val groupInfo = when (this) {
+            is OneBotNormalGroupMessageEvent -> "群${content().id}(${content().name})的"
+            else -> ""
+        }
+        logger.info("来自$groupInfo$name($authorId)的建议：\n${messageContent.plainText}")
+
         (memeConfig.notificationReceiver - authorId.toString())
             .forEach {
-                val name = when (this) {
-                    is OneBotNormalGroupMessageEvent -> author().name
-                    is OneBotFriendMessageEvent -> content().name
-                    else -> "未知用户"
-                }
                 bot.contactRelation.contact(it.ID)
                     ?.send(
                         listOf(
-                            "来自$name(${authorId})的建议：\n".toText(), *messageContent.messages.toList().toTypedArray()
+                            "来自$groupInfo$name(${authorId})的建议：\n".toText(),
+                            *messageContent.messages.toList().toTypedArray()
                         ).toMessages()
                     )
             }
@@ -244,14 +271,16 @@ class Meme {
     /**
      * 根据关键词查找有无对应Meme实例，未找到会回复相应提示
      */
-    suspend fun OneBotMessageEvent.findMemeInstance(keyword: String): SingleMeme? =
+    suspend fun OneBotMessageEvent.findMemeInstance(keyword: String, sendFeedback: Boolean = true): SingleMeme? =
         memeConfig.memes.firstOrNull {
             keyword.lowercase() in setOf(
                 it.name,
                 *(it.alias?.toTypedArray() ?: emptyArray())
             ).map { word -> word.lowercase() }
         } ?: run {
-            directlySend("未发现该关键词！")
+            if (sendFeedback) {
+                directlySend("未发现该关键词！")
+            }
             return null
         }
 }

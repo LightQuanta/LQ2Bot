@@ -4,7 +4,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 private fun getOrCreateConfig(componentName: String, fileName: String): File {
-    val file = File("./lq2config/$componentName/$fileName")
+    val file = File("./lq2bot/config/$componentName/$fileName")
     if (!file.exists()) {
         file.parentFile.mkdirs()
         file.createNewFile()
