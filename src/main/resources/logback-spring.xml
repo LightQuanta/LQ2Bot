@@ -1,7 +1,7 @@
 <configuration>
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %level{10} %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -11,7 +11,7 @@
             <fileNamePattern>lq2bot/logs/chat/%d{yyyy-MM-dd}.log</fileNamePattern>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %level{10} %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -21,7 +21,7 @@
             <fileNamePattern>lq2bot/logs/ban/%d{yyyy-MM-dd}.log</fileNamePattern>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %level{10} %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -31,7 +31,7 @@
             <fileNamePattern>lq2bot/logs/meme/%d{yyyy-MM-dd}.log</fileNamePattern>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %level{10} %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
