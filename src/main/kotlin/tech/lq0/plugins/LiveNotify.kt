@@ -14,6 +14,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import love.forte.simbot.application.Application
 import love.forte.simbot.common.id.StringID.Companion.ID
+import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
+import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
 import love.forte.simbot.logger.LoggerFactory
 import love.forte.simbot.message.OfflineImage.Companion.toOfflineImage
@@ -27,6 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import tech.lq0.interceptor.ChinesePunctuationReplace
 import tech.lq0.interceptor.RequireAdmin
+import tech.lq0.interceptor.RequireBotAdmin
 import tech.lq0.utils.*
 import java.net.URI
 import kotlin.time.Duration.Companion.seconds
@@ -192,12 +195,14 @@ class LiveNotify @Autowired constructor(app: Application) {
                 val subscribedGroups = liveUIDBind.getOrPut(uid) { mutableSetOf() }
                 subscribedGroups += groupId.toString()
             }
+            logger.info("群${groupId}(${content().name})订阅了${subscribeList.size}个主播，UID：${subscribeList.joinToString()}")
             directlySend("已订阅${subscribeList.size}个主播")
         } else {
             for (uid in uidList) {
                 val bindGroups = liveUIDBind[uid]?.also { it -= groupId.toString() }
                 if (bindGroups.isNullOrEmpty()) liveUIDBind -= uid
             }
+            logger.info("群${groupId}(${content().name})取消订阅了${uidList.size}个主播，UID：${uidList.joinToString()}")
             directlySend("已取消订阅${uidList.size}个主播")
         }
         saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
@@ -206,14 +211,20 @@ class LiveNotify @Autowired constructor(app: Application) {
     @Listener
     @ChinesePunctuationReplace
     @Filter("!showsubscribe")
-    suspend fun OneBotNormalGroupMessageEvent.showSubscribe() {
-        val subscribedUIDs = liveUIDBind.filter { groupId.toString() in it.value }.map { it.key }
+    suspend fun OneBotGroupMessageEvent.showSubscribe() = showAnySubscribe(groupId.toString())
+
+    @Listener
+    @RequireBotAdmin
+    @ChinesePunctuationReplace
+    @Filter("!showsubscribe {{group,\\d+}}")
+    suspend fun OneBotMessageEvent.showAnySubscribe(@FilterValue("group") group: String) {
+        val subscribedUIDs = liveUIDBind.filter { group in it.value }.map { it.key }
 
         directlySend(
             if (subscribedUIDs.isEmpty()) {
-                "本群还没有订阅主播！"
+                "该群还没有订阅主播！"
             } else {
-                "本群订阅的主播UID：${subscribedUIDs.joinToString()}"
+                "该群订阅的主播UID：${subscribedUIDs.joinToString()}"
             }
         )
     }
