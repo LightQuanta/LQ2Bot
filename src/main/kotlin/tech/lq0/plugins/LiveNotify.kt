@@ -168,7 +168,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                     }
                 }
 
-                saveConfig("LiveNotify", "lastLiveTime.json", Json.encodeToString(lastLiveTime))
+                saveConfig("LiveNotify", "lastLiveTime.json", Json.encodeToString(lastLiveTime), false)
                 delay(30.seconds)
             }
         }

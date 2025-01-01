@@ -43,7 +43,7 @@ suspend fun banMember(member: String, group: OneBotGroup?) {
     if (group != null) {
         val count = (groupViolationCount[group.id.toString()] ?: 0) + 1
         groupViolationCount[group.id.toString()] = count
-        saveConfig("SensitiveWords", "violation.json", Json.encodeToString(groupViolationCount))
+        saveConfig("SensitiveWords", "violation.json", Json.encodeToString(groupViolationCount), false)
         logger.info("群 $group 已累计触发敏感词 $count 次")
 
         if (count >= 3) {
