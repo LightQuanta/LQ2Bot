@@ -73,3 +73,7 @@ val liveUIDBind by lazy {
 val sensitiveLivers by lazy {
     readJSONConfigAs<MutableSet<String>>("LiveNotify", "sensitiveLivers.json") ?: mutableSetOf()
 }
+
+val alarms by lazy {
+    readJSONConfigAs<MutableMap<String, MutableSet<String>>>("Alarm", "alarms.json") ?: mutableMapOf()
+}
