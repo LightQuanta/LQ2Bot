@@ -260,7 +260,7 @@ class Meme {
             is OneBotNormalGroupMessageEvent -> "群${content().id}(${content().name})的"
             else -> ""
         }
-        logger.info("来自$groupInfo$name($authorId)的建议：\n${messageContent.plainText}")
+        logger.info("来自$groupInfo$name($authorId)的建议：${messageContent.plainText}")
 
         (memeConfig.notificationReceiver - authorId.toString())
             .forEach {

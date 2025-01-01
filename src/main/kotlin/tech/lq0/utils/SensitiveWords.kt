@@ -21,11 +21,10 @@ val sensitiveWordsRegex by lazy {
 }
 
 val chineseCharRegex = Regex("[一-龥]")
-val pinyinFormat = with(HanyuPinyinOutputFormat()) {
+val pinyinFormat = HanyuPinyinOutputFormat().apply {
     caseType = HanyuPinyinCaseType.LOWERCASE
     toneType = HanyuPinyinToneType.WITHOUT_TONE
     vCharType = HanyuPinyinVCharType.WITH_V
-    return@with this
 }
 
 val logger = LoggerFactory.getLogger("BAN")

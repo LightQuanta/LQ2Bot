@@ -20,7 +20,7 @@ class GroupSwitchControl {
     @Listener
     @ChinesePunctuationReplace
     @RequireAdmin
-    @Filter("!{{operation,(enable|disable|reset)}} {{plugins,\\w+([, ]\\w+)*}}")
+    @Filter("!{{operation,(enable|disable|reset)}} {{plugins,\\w+([, ]+\\w+)*}}")
     suspend fun OneBotGroupMessageEvent.control(
         @FilterValue("operation") operation: String,
         @FilterValue("plugins") pluginIDStr: String,
@@ -30,7 +30,7 @@ class GroupSwitchControl {
             groupPluginConfig[groupID] = PluginConfig()
         }
 
-        val pluginIDs = pluginIDStr.split(" ", ",")
+        val pluginIDs = pluginIDStr.split(Regex("[, ]+"))
         for (pluginID in pluginIDs) {
             when (operation) {
                 "reset" -> {

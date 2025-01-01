@@ -22,13 +22,13 @@ class BlackListControl {
     @Listener
     @ChinesePunctuationReplace
     @RequireBotAdmin
-    @Filter("!{{operation,(un)?ban}} {{list,\\d+([, ]\\d+)*}}")
+    @Filter("!{{operation,(un)?ban}} {{list,\\d+([, ]+\\d+)*}}")
     suspend fun OneBotMessageEvent.ban(
         @FilterValue("operation") operation: String,
         @FilterValue("list") banList: String,
     ) {
         // 禁止bot管理员拉黑bot管理员
-        val list = banList.split(",", " ").filter { it !in botPermissionConfig.admin }
+        val list = banList.split(Regex("[, ]+")).filter { it !in botPermissionConfig.admin }
         for (id in list) {
             if (operation == "ban") {
                 botPermissionConfig.memberBlackList += id
@@ -53,12 +53,12 @@ class BlackListControl {
     @Listener
     @ChinesePunctuationReplace
     @RequireBotAdmin
-    @Filter("!{{operation,(un)?bangroup}} {{list,\\d+([, ]\\d+)*}}")
+    @Filter("!{{operation,(un)?bangroup}} {{list,\\d+([, ]+\\d+)*}}")
     suspend fun OneBotMessageEvent.banGroup(
         @FilterValue("operation") operation: String,
         @FilterValue("list") banList: String,
     ) {
-        val list = banList.split(",", " ")
+        val list = banList.split(Regex("[, ]+"))
         for (id in list) {
             if (operation == "bangroup") {
                 botPermissionConfig.groupBlackList += id
@@ -85,12 +85,12 @@ class BlackListControl {
     @Listener
     @ChinesePunctuationReplace
     @RequireBotAdmin
-    @Filter("!{{operation,(enable|disable)bot}} {{list,\\d+([, ]\\d+)*}}")
+    @Filter("!{{operation,(enable|disable)bot}} {{list,\\d+([, ]+\\d+)*}}")
     suspend fun OneBotMessageEvent.batchDisableGroup(
         @FilterValue("operation") operation: String,
         @FilterValue("list") banList: String,
     ) {
-        val list = banList.split(",", " ")
+        val list = banList.split(Regex("[, ]+"))
         for (id in list) {
             if (operation == "enablebot") {
                 botPermissionConfig.groupDisabledList -= id
