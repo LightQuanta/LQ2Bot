@@ -180,16 +180,26 @@ class LiveNotify @Autowired constructor(app: Application) {
         @FilterValue("uids") uids: String,
     ) {
         val uidList = uids.split(Regex("[, ]+"))
-        for (uid in uidList) {
-            if (operation == "subscribe") {
+        if (operation == "subscribe") {
+            val subscribedCount = liveUIDBind.filter { groupId.toString() in it.value }.size
+            val subscribeList = uidList.take((100 - subscribedCount).coerceAtLeast(0))
+            if (subscribeList.isEmpty()) {
+                directlySend("订阅的主播数量超出最大限制！")
+                return
+            }
+
+            for (uid in subscribeList) {
                 val subscribedGroups = liveUIDBind.getOrPut(uid) { mutableSetOf() }
                 subscribedGroups += groupId.toString()
-            } else {
+            }
+            directlySend("已订阅${subscribeList.size}个主播")
+        } else {
+            for (uid in uidList) {
                 val bindGroups = liveUIDBind[uid]?.also { it -= groupId.toString() }
                 if (bindGroups.isNullOrEmpty()) liveUIDBind -= uid
             }
+            directlySend("已取消订阅${uidList.size}个主播")
         }
-        directlySend("已${if (operation == "unsubscribe") "取消" else ""}订阅${uidList.size}个主播")
         saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
     }
 
