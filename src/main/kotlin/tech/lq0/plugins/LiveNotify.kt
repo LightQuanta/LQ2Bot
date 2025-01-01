@@ -16,19 +16,19 @@ import love.forte.simbot.application.Application
 import love.forte.simbot.common.id.StringID.Companion.ID
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
 import love.forte.simbot.logger.LoggerFactory
+import love.forte.simbot.message.OfflineImage.Companion.toOfflineImage
 import love.forte.simbot.message.messagesOf
 import love.forte.simbot.message.toText
 import love.forte.simbot.quantcat.common.annotations.Filter
 import love.forte.simbot.quantcat.common.annotations.FilterValue
 import love.forte.simbot.quantcat.common.annotations.Listener
+import love.forte.simbot.resource.toResource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import tech.lq0.interceptor.ChinesePunctuationReplace
 import tech.lq0.interceptor.RequireAdmin
-import tech.lq0.utils.directlySend
-import tech.lq0.utils.lastLiveTime
-import tech.lq0.utils.liveUIDBind
-import tech.lq0.utils.saveConfig
+import tech.lq0.utils.*
+import java.net.URI
 import kotlin.time.Duration.Companion.seconds
 
 
@@ -96,6 +96,15 @@ class LiveNotify @Autowired constructor(app: Application) {
                 // 检测并通知开播/下播
                 for (info in roomInfo) {
                     with(info) {
+                        val filteredName = if (uid.toString() in sensitiveLivers) "UID: $uid" else {
+                            if (name.isSensitive()) {
+                                logger.warn("检测到主播${name}(UID: ${uid})名称疑似含有敏感词，已替换为UID")
+                                sensitiveLivers += uid.toString()
+                                saveConfig("LiveNotify", "sensitiveLivers.json", Json.encodeToString(sensitiveLivers))
+                                "UID: $uid"
+                            } else name
+                        }
+
                         if (liveStatus == 1 && liveTime > lastLiveTime.getOrDefault(uid.toString(), 0)) {
                             // 开播通知
                             logger.info("检测到${name}(UID: ${uid})开播")
@@ -104,13 +113,26 @@ class LiveNotify @Autowired constructor(app: Application) {
                             val groups = liveUIDBind[uid.toString()]!!
                             var succeedCount = 0
 
+                            val filteredTitle = if (uid.toString() in sensitiveLivers) "" else {
+                                if (title.isSensitive()) {
+                                    logger.warn("检测到主播${name}(UID: ${uid})直播间标题疑似含有敏感词，已替换为UID")
+                                    sensitiveLivers += uid.toString()
+                                    saveConfig(
+                                        "LiveNotify",
+                                        "sensitiveLivers.json",
+                                        Json.encodeToString(sensitiveLivers)
+                                    )
+                                    ""
+                                } else title
+                            }
+
+                            val image = URI(cover).toURL().toResource().toOfflineImage()
                             for (group in groups) {
                                 try {
                                     bot.groupRelation?.group(group.ID)?.send(
                                         messagesOf(
-                                            "${name}开播了！\nhttps://live.bilibili.com/$roomId".toText(),
-                                            // TODO URL图片发送
-                                            // RemoteUrlAwareImage()
+                                            "${filteredName}开播了！\n$filteredTitle\nhttps://live.bilibili.com/$roomId".toText(),
+                                            image,
                                         )
                                     ) ?: throw Exception("获取群${group.ID}失败")
                                     succeedCount++
@@ -130,7 +152,7 @@ class LiveNotify @Autowired constructor(app: Application) {
 
                             for (group in groups) {
                                 try {
-                                    bot.groupRelation?.group(group.ID)?.send("$${name}下播了！")
+                                    bot.groupRelation?.group(group.ID)?.send("${filteredName}下播了！")
                                         ?: throw Exception("获取群${group.ID}失败")
                                     succeedCount++
                                 } catch (e: Exception) {

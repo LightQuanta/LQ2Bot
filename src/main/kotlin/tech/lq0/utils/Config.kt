@@ -66,3 +66,10 @@ val lastLiveTime by lazy {
 val liveUIDBind by lazy {
     readJSONConfigAs<MutableMap<String, MutableSet<String>>>("LiveNotify", "liveUIDBind.json") ?: mutableMapOf()
 }
+
+/**
+ * 疑似存在违规名称和直播间标题的主播
+ */
+val sensitiveLivers by lazy {
+    readJSONConfigAs<MutableSet<String>>("LiveNotify", "sensitiveLivers.json") ?: mutableSetOf()
+}
