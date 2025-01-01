@@ -50,3 +50,19 @@ data class Meme(
 val memeConfig by lazy {
     readJSONConfigAs<Meme>("Meme", "meme.json") ?: Meme()
 }
+
+/**
+ * 订阅主播上次开播时间记录
+ * 主播UID -> 上次开播时间戳（秒）
+ */
+val lastLiveTime by lazy {
+    readJSONConfigAs<MutableMap<String, Long>>("LiveNotify", "lastLiveTime.json") ?: mutableMapOf()
+}
+
+/**
+ * 开播通知订阅信息
+ * 订阅主播UID -> Set<订阅群群号>
+ */
+val liveUIDBind by lazy {
+    readJSONConfigAs<MutableMap<String, MutableSet<String>>>("LiveNotify", "liveUIDBind.json") ?: mutableMapOf()
+}

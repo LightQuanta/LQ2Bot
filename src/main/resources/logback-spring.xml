@@ -35,6 +35,16 @@
         </encoder>
     </appender>
 
+    <appender name="LIVE" class="ch.qos.logback.core.FileAppender">
+        <file>lq2bot/logs/live/latest.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>lq2bot/logs/live/%d{yyyy-MM-dd}.log</fileNamePattern>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %level{10} %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
     <logger name="CHAT" level="DEBUG">
         <appender-ref ref="CHAT"/>
     </logger>
@@ -45,6 +55,10 @@
 
     <logger name="MEME" level="DEBUG">
         <appender-ref ref="MEME"/>
+    </logger>
+
+    <logger name="LIVE" level="DEBUG">
+        <appender-ref ref="LIVE"/>
     </logger>
 
     <root level="INFO">
