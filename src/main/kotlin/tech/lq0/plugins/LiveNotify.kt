@@ -28,6 +28,7 @@ import love.forte.simbot.resource.toResource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import tech.lq0.interceptor.ChinesePunctuationReplace
+import tech.lq0.interceptor.FunctionSwitch
 import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.interceptor.RequireBotAdmin
 import tech.lq0.utils.*
@@ -113,7 +114,11 @@ class LiveNotify @Autowired constructor(app: Application) {
                             logger.info("检测到${name}(UID: ${uid})开播")
 
                             lastLiveTime[uid.toString()] = liveTime
-                            val groups = liveUIDBind[uid.toString()]!!
+                            val groups = liveUIDBind[uid.toString()]!!.filter {
+                                it !in botPermissionConfig.groupBlackList
+                                        && it !in botPermissionConfig.groupDisabledList
+                                        && groupPluginConfig[it]?.disabled?.contains("LiveNotify") == false
+                            }
                             var succeedCount = 0
 
                             val filteredTitle = if (uid.toString() in sensitiveLivers) "" else {
@@ -150,7 +155,11 @@ class LiveNotify @Autowired constructor(app: Application) {
                             logger.info("检测到${name}(UID: ${uid})下播")
 
                             lastLiveTime -= uid.toString()
-                            val groups = liveUIDBind[uid.toString()]!!
+                            val groups = liveUIDBind[uid.toString()]!!.filter {
+                                it !in botPermissionConfig.groupBlackList
+                                        && it !in botPermissionConfig.groupDisabledList
+                                        && groupPluginConfig[it]?.disabled?.contains("LiveNotify") == false
+                            }
                             var succeedCount = 0
 
                             for (group in groups) {
@@ -176,6 +185,7 @@ class LiveNotify @Autowired constructor(app: Application) {
 
     @Listener
     @RequireAdmin
+    @FunctionSwitch("LiveNotify")
     @ChinesePunctuationReplace
     @Filter("!{{operation,(un)?subscribe}} {{uids,\\d+([, ]+\\d+)*}}")
     suspend fun OneBotNormalGroupMessageEvent.subscribe(
@@ -209,6 +219,7 @@ class LiveNotify @Autowired constructor(app: Application) {
     }
 
     @Listener
+    @FunctionSwitch("LiveNotify")
     @ChinesePunctuationReplace
     @Filter("!showsubscribe")
     suspend fun OneBotGroupMessageEvent.showSubscribe() = showAnySubscribe(groupId.toString())
