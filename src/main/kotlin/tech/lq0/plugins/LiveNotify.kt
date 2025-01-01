@@ -228,4 +228,19 @@ class LiveNotify @Autowired constructor(app: Application) {
             }
         )
     }
+
+    @Listener
+    @RequireBotAdmin
+    @ChinesePunctuationReplace
+    @Filter("!showsubscribe uid:{{uid,\\d+}}")
+    suspend fun OneBotMessageEvent.showUIDSubscribe(@FilterValue("uid") uid: String) {
+        val subscribedGroups = liveUIDBind[uid] ?: emptySet()
+        directlySend(
+            if (subscribedGroups.isEmpty()) {
+                "目前还没有群订阅该主播！"
+            } else {
+                "订阅该主播的${subscribedGroups.size}个群：${subscribedGroups.joinToString()}"
+            }
+        )
+    }
 }
