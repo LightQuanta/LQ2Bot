@@ -8,16 +8,20 @@ import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMess
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
 import love.forte.simbot.logger.LoggerFactory
+import love.forte.simbot.message.OfflineImage.Companion.toOfflineImage
+import love.forte.simbot.message.messagesOf
 import love.forte.simbot.message.toMessages
 import love.forte.simbot.message.toText
 import love.forte.simbot.quantcat.common.annotations.Filter
 import love.forte.simbot.quantcat.common.annotations.FilterValue
 import love.forte.simbot.quantcat.common.annotations.Listener
+import love.forte.simbot.resource.toResource
 import org.springframework.stereotype.Component
 import tech.lq0.interceptor.ChinesePunctuationReplace
 import tech.lq0.interceptor.FunctionSwitch
 import tech.lq0.utils.*
 import java.time.Instant
+import kotlin.io.path.Path
 
 @Component
 class Meme {
@@ -68,7 +72,24 @@ class Meme {
 
             if (it.detectType != DetectType.REGEX_REPLACE) {
                 // 普通回复默认已经经过审核，故不启用敏感词检测
-                directlySend(it.replyContent.random())
+                val reply = it.replyContent.random()
+
+                if (reply.startsWith("[picture]")) {
+                    val imageName = reply.substringAfter("[picture]")
+                    try {
+                        directlySend(
+                            messagesOf(
+                                Path("./lq2bot/config/Meme/images/$imageName").toResource().toOfflineImage()
+                            )
+                        )
+                    } catch (e: Exception) {
+                        logger.error("发送图片 $imageName 失败：$e")
+                        directlySend(imageName)
+                    }
+                } else {
+                    directlySend(reply)
+                }
+
             } else {
                 // 为正则替换类型Meme进行敏感词检测
                 if (text.isSensitive()) {
