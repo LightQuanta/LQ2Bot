@@ -35,18 +35,18 @@ class Mute {
             if (role != OneBotMemberRole.MEMBER) {
                 content().send(
                     messagesOf(
-                        "恭喜".toText(),
+                        "恭喜 ".toText(),
                         At(authorId),
-                        "抽中了1145141919810分钟禁言套餐！".toText(),
+                        " 抽中了1145141919810分钟禁言套餐！".toText(),
                     )
                 )
             } else {
                 ban(time.minutes)
                 content().send(
                     messagesOf(
-                        "恭喜".toText(),
+                        "恭喜 ".toText(),
                         At(authorId),
-                        "抽中了${time}分钟禁言套餐！".toText(),
+                        " 抽中了${time}分钟禁言套餐！".toText(),
                     )
                 )
             }
@@ -67,9 +67,9 @@ class Mute {
                 // 换用@应该就不用审核用户名了吧（）
                 content().send(
                     messagesOf(
-                        "恭喜".toText(),
+                        "恭喜 ".toText(),
                         At(authorId),
-                        "成功领取了${time}分钟的禁言套餐！".toText(),
+                        " 成功领取了${time}分钟的禁言套餐！".toText(),
                     )
                 )
             }
