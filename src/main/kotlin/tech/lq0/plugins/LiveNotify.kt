@@ -127,7 +127,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                             val groups = liveUIDBind[uid.toString()]!!.filter {
                                 it !in botPermissionConfig.groupBlackList
                                         && it !in botPermissionConfig.groupDisabledList
-                                        && groupPluginConfig[it]?.disabled?.contains("LiveNotify") == false
+                                        && "LiveNotify" !in (groupPluginConfig[it]?.disabled ?: setOf())
                             }
                             var succeedCount = 0
 
@@ -168,7 +168,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                             val groups = liveUIDBind[uid.toString()]!!.filter {
                                 it !in botPermissionConfig.groupBlackList
                                         && it !in botPermissionConfig.groupDisabledList
-                                        && groupPluginConfig[it]?.disabled?.contains("LiveNotify") == false
+                                        && "LiveNotify" !in (groupPluginConfig[it]?.disabled ?: setOf())
                             }
                             var succeedCount = 0
 
