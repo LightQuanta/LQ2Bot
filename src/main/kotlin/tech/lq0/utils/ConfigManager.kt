@@ -30,6 +30,7 @@ inline fun <reified T> readJSONConfigAs(componentName: String, fileName: String)
     return try {
         Json.decodeFromString<T>(readConfig(componentName, fileName))
     } catch (e: Exception) {
+        println(("读取配置文件 $componentName/$fileName 出错：${e}"))
         null
     }
 }

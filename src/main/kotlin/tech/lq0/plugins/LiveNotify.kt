@@ -327,7 +327,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                     it.key
                 }
                 saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
-                logger.info("群 $num 清空订阅了${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
+                logger.info("清空群 $num 订阅的${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
                 directlySend("已清空群 $num 订阅的${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
             } else {
                 directlySend("该群没有订阅任何主播！")
