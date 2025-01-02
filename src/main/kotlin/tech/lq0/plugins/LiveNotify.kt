@@ -59,6 +59,11 @@ val json = Json {
     ignoreUnknownKeys = true
 }
 
+/**
+ * 单个群最多允许订阅的主播数量
+ */
+const val MAXIMUM_SUBSCRIBE_COUNT = 300
+
 @Component
 class LiveNotify @Autowired constructor(app: Application) {
     val logger = LoggerFactory.getLogger("LIVE")
@@ -217,12 +222,13 @@ class LiveNotify @Autowired constructor(app: Application) {
 
         if (operation == "subscribe") {
             val subscribed = liveUIDBind.filter { groupId.toString() in it.value }.keys
-            if (subscribed.size >= 100) {
+            if (subscribed.size >= MAXIMUM_SUBSCRIBE_COUNT) {
                 directlySend("订阅的主播数量已达到允许的最大值！")
                 return
             }
 
-            val newSubscribeList = (uidList - subscribed).take((100 - subscribed.size).coerceAtLeast(0))
+            val newSubscribeList =
+                (uidList - subscribed).take((MAXIMUM_SUBSCRIBE_COUNT - subscribed.size).coerceAtLeast(0))
             if (newSubscribeList.isEmpty()) {
                 directlySend("该群已经订阅上述全部主播！")
                 return
@@ -283,7 +289,7 @@ class LiveNotify @Autowired constructor(app: Application) {
             if (subscribedUIDs.isEmpty()) {
                 "该群还没有订阅主播！"
             } else {
-                "该群订阅的主播UID：${nameOrUIDs.joinToString()}"
+                "该群订阅的${subscribedUIDs.size}个主播UID：${nameOrUIDs.joinToString()}"
             }
         )
     }
