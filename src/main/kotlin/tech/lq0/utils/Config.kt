@@ -68,10 +68,17 @@ val liveUIDBind by lazy {
 }
 
 /**
- * 疑似存在违规名称和直播间标题的主播
+ * 疑似存在违规名称和直播间标题的主播的UID
  */
 val sensitiveLivers by lazy {
     readJSONConfigAs<MutableSet<String>>("LiveNotify", "sensitiveLivers.json") ?: mutableSetOf()
+}
+
+/**
+ * 主播UID -> 主播名称
+ */
+val UIDNameCache by lazy {
+    readJSONConfigAs<MutableMap<String, String>>("LiveNotify", "UIDNameCache.json") ?: mutableMapOf()
 }
 
 val alarms by lazy {
