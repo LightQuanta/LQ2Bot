@@ -187,12 +187,12 @@ class LiveNotify @Autowired constructor(app: Application) {
     @RequireAdmin
     @FunctionSwitch("LiveNotify")
     @ChinesePunctuationReplace
-    @Filter("!{{operation,(un)?subscribe}} {{uids,\\d+([, ]+\\d+)*}}")
+    @Filter("!{{operation,(un)?subscribe}} {{uids,\\d+(\\D+\\d+)*}}")
     suspend fun OneBotNormalGroupMessageEvent.subscribe(
         @FilterValue("operation") operation: String,
         @FilterValue("uids") uids: String,
     ) {
-        val uidList = uids.split(Regex("[, ]+"))
+        val uidList = uids.split(Regex("\\D+"))
         if (operation == "subscribe") {
             val subscribedCount = liveUIDBind.filter { groupId.toString() in it.value }.size
             val subscribeList = uidList.take((100 - subscribedCount).coerceAtLeast(0))
