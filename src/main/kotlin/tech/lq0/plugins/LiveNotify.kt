@@ -292,6 +292,51 @@ class LiveNotify @Autowired constructor(app: Application) {
         )
     }
 
+    @Listener
+    @RequireAdmin
+    @FunctionSwitch("LiveNotify")
+    @ChinesePunctuationReplace
+    @Filter("!clearsubscribe")
+    suspend fun OneBotGroupMessageEvent.clearSubscribe() = clearAnySubscribe("", groupId.toString())
+
+    @Listener
+    @RequireBotAdmin
+    @ChinesePunctuationReplace
+    @Filter("!clearsubscribe {{operation,(uid:?)?}} *{{num,\\d+}}")
+    suspend fun OneBotMessageEvent.clearAnySubscribe(
+        @FilterValue("operation") operation: String,
+        @FilterValue("num") num: String,
+    ) {
+        if (operation.take(3) == "uid") {
+            // 清空订阅该UID的所有群，num为UID
+            val groups = liveUIDBind[num]
+            if (groups == null) {
+                directlySend("该主播 UID: ${getUIDNameString(num)} 没有任何群订阅！")
+                return
+            }
+            liveUIDBind -= num
+
+            saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
+            logger.info("清空订阅了 UID: ${getUIDNameString(num)}的${groups.size}个群：${groups.joinToString()}")
+            directlySend("已清空订阅 UID: ${getUIDNameString(num)}的${groups.size}个群：${groups.joinToString()}")
+        } else {
+            // 清空该群订阅的所有主播，num为群号
+            if (liveUIDBind.any { num in it.value }) {
+                val removed = liveUIDBind.filter { num in it.value }.map {
+                    it.value -= num
+                    it.key
+                }
+                saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
+                logger.info("群 $num 清空订阅了${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
+                directlySend("已清空群 $num 订阅的${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
+            } else {
+                directlySend("该群没有订阅任何主播！")
+                return
+            }
+        }
+
+    }
+
     fun getUIDNameString(uid: String): String {
         return if (uid in UIDNameCache && uid !in sensitiveLivers) {
             "$uid(${UIDNameCache[uid]})"
