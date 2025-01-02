@@ -2,6 +2,9 @@ package tech.lq0.plugins
 
 import love.forte.simbot.component.onebot.v11.core.actor.OneBotMemberRole
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
+import love.forte.simbot.message.At
+import love.forte.simbot.message.messagesOf
+import love.forte.simbot.message.toText
 import love.forte.simbot.quantcat.common.annotations.ContentTrim
 import love.forte.simbot.quantcat.common.annotations.Filter
 import love.forte.simbot.quantcat.common.annotations.FilterValue
@@ -28,12 +31,24 @@ class Mute {
     suspend fun OneBotNormalGroupMessageEvent.randomMute() {
         val time = timeRange.random()
         with(author()) {
-            // TODO 用户名审核
+            // 换用@应该就不用审核用户名了吧（）
             if (role != OneBotMemberRole.MEMBER) {
-                content().send("恭喜${name}抽中了1145141919810分钟禁言套餐！")
+                content().send(
+                    messagesOf(
+                        "恭喜".toText(),
+                        At(authorId),
+                        "抽中了1145141919810分钟禁言套餐！".toText(),
+                    )
+                )
             } else {
                 ban(time.minutes)
-                content().send("恭喜${name}抽中了${time}分钟禁言套餐！")
+                content().send(
+                    messagesOf(
+                        "恭喜".toText(),
+                        At(authorId),
+                        "抽中了${time}分钟禁言套餐！".toText(),
+                    )
+                )
             }
         }
         // TODO 爬行者榜？
@@ -49,8 +64,14 @@ class Mute {
                 content().send("在？有种把管理卸了")
             } else {
                 ban(time.coerceIn(1..720).minutes)
-                // TODO 用户名审核
-                content().send("恭喜${name}成功领取了${time}分钟的禁言套餐！")
+                // 换用@应该就不用审核用户名了吧（）
+                content().send(
+                    messagesOf(
+                        "恭喜".toText(),
+                        At(authorId),
+                        "成功领取了${time}分钟的禁言套餐！".toText(),
+                    )
+                )
             }
         }
     }
