@@ -216,24 +216,29 @@ class LiveNotify @Autowired constructor(app: Application) {
         }
 
         if (operation == "subscribe") {
-            val subscribedCount = liveUIDBind.filter { groupId.toString() in it.value }.size
-            val subscribeList = uidList.take((100 - subscribedCount).coerceAtLeast(0))
-            if (subscribeList.isEmpty()) {
-                directlySend("订阅的主播数量超出最大限制！")
+            val subscribed = liveUIDBind.filter { groupId.toString() in it.value }.keys
+            if (subscribed.size >= 100) {
+                directlySend("订阅的主播数量已达到允许的最大值！")
                 return
             }
 
-            for (uid in subscribeList) {
+            val newSubscribeList = (uidList - subscribed).take((100 - subscribed.size).coerceAtLeast(0))
+            if (newSubscribeList.isEmpty()) {
+                directlySend("已经订阅过上述全部主播！")
+                return
+            }
+
+            for (uid in newSubscribeList) {
                 val subscribedGroups = liveUIDBind.getOrPut(uid) { mutableSetOf() }
                 subscribedGroups += groupId.toString()
             }
             logger.info(
-                "群${groupId}(${content().name})订阅了${subscribeList.size}个主播：${
-                    subscribeList.joinToString { getUIDNameString(it) }
+                "群${groupId}(${content().name})订阅了${newSubscribeList.size}个主播：${
+                    newSubscribeList.joinToString { getUIDNameString(it) }
                 }"
             )
             directlySend(
-                "已订阅以下${subscribeList.size}个主播：\n${subscribeList.joinToString { getUIDNameString(it) }}"
+                "已订阅以下${newSubscribeList.size}个主播：\n${newSubscribeList.joinToString { getUIDNameString(it) }}"
             )
         } else {
             for (uid in uidList) {
