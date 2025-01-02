@@ -224,7 +224,7 @@ class LiveNotify @Autowired constructor(app: Application) {
 
             val newSubscribeList = (uidList - subscribed).take((100 - subscribed.size).coerceAtLeast(0))
             if (newSubscribeList.isEmpty()) {
-                directlySend("已经订阅过上述全部主播！")
+                directlySend("该群已经订阅上述全部主播！")
                 return
             }
 
@@ -241,17 +241,25 @@ class LiveNotify @Autowired constructor(app: Application) {
                 "已订阅以下${newSubscribeList.size}个主播：\n${newSubscribeList.joinToString { getUIDNameString(it) }}"
             )
         } else {
-            for (uid in uidList) {
-                val bindGroups = liveUIDBind[uid]?.also { it -= groupId.toString() }
-                if (bindGroups.isNullOrEmpty()) liveUIDBind -= uid
+            val subscribed = liveUIDBind.filter { groupId.toString() in it.value }.keys
+            val uidToRemove = uidList.intersect(subscribed)
+
+            if (uidToRemove.isEmpty()) {
+                directlySend("该群没有订阅上述任何主播！")
+                return
+            }
+
+            for (uid in uidToRemove) {
+                val bindGroups = liveUIDBind[uid]!!.also { it -= groupId.toString() }
+                if (bindGroups.isEmpty()) liveUIDBind -= uid
             }
             logger.info(
-                "群${groupId}(${content().name})取消订阅了${uidList.size}个主播：${
-                    uidList.joinToString { getUIDNameString(it) }
+                "群${groupId}(${content().name})取消订阅了${uidToRemove.size}个主播：${
+                    uidToRemove.joinToString { getUIDNameString(it) }
                 }"
             )
             directlySend(
-                "已取消订阅以下${uidList.size}个主播：\n${uidList.joinToString { getUIDNameString(it) }}"
+                "已取消订阅以下${uidToRemove.size}个主播：\n${uidToRemove.joinToString { getUIDNameString(it) }}"
             )
         }
         saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
