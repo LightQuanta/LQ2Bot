@@ -227,7 +227,11 @@ class LiveNotify @Autowired constructor(app: Application) {
                 val subscribedGroups = liveUIDBind.getOrPut(uid) { mutableSetOf() }
                 subscribedGroups += groupId.toString()
             }
-            logger.info("群${groupId}(${content().name})订阅了${subscribeList.size}个主播，UID：${subscribeList.joinToString()}")
+            logger.info(
+                "群${groupId}(${content().name})订阅了${subscribeList.size}个主播：${
+                    subscribeList.joinToString { getUIDNameString(it) }
+                }"
+            )
             directlySend(
                 "已订阅以下${subscribeList.size}个主播：\n${subscribeList.joinToString { getUIDNameString(it) }}"
             )
@@ -236,7 +240,11 @@ class LiveNotify @Autowired constructor(app: Application) {
                 val bindGroups = liveUIDBind[uid]?.also { it -= groupId.toString() }
                 if (bindGroups.isNullOrEmpty()) liveUIDBind -= uid
             }
-            logger.info("群${groupId}(${content().name})取消订阅了${uidList.size}个主播，UID：${uidList.joinToString()}")
+            logger.info(
+                "群${groupId}(${content().name})取消订阅了${uidList.size}个主播：${
+                    uidList.joinToString { getUIDNameString(it) }
+                }"
+            )
             directlySend(
                 "已取消订阅以下${uidList.size}个主播：\n${uidList.joinToString { getUIDNameString(it) }}"
             )
