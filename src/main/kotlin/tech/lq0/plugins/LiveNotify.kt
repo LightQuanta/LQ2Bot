@@ -344,7 +344,8 @@ class LiveNotify @Autowired constructor(app: Application) {
                 val removed = liveUIDBind.filter { num in it.value }.map {
                     it.value -= num
                     it.key
-                }
+                }.onEach { if (liveUIDBind[it]!!.isEmpty()) liveUIDBind -= it }
+
                 saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
                 logger.info("清空群 $num 订阅的${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
                 directlySend("已清空群 $num 订阅的${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
