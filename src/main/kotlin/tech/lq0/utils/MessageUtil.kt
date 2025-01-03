@@ -4,6 +4,7 @@ import love.forte.simbot.component.onebot.v11.core.event.message.OneBotFriendMes
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupPrivateMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
+import love.forte.simbot.component.onebot.v11.message.segment.OneBotText
 import love.forte.simbot.message.*
 
 /**
@@ -100,12 +101,16 @@ suspend fun OneBotMessageEvent.replyAndLog(messages: Messages) {
 /**
  * 将消息转换为文本
  */
-fun Messages.toText() = joinToString("") {
+fun Messages.toText() = toList().joinToString("") {
     when (it) {
         is At -> "[@${it.target}]"
         is AtAll -> "[@全体成员]"
         is Image -> "[图片]"
         is Text -> it.text
+
+        // 说好的会自动转换成Text呢（
+        is OneBotText.Element -> it.text
+
         else -> toString()
     }
 }
