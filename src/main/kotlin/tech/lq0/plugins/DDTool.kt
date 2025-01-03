@@ -200,22 +200,22 @@ class DDTool {
         URL("$face@150h").toResource().toOfflineImage(),
         if (isLiving) {
             """
-                ${if (title.isSensitive()) "" else title}
-                https://live.bilibili.com/$liveRoom
+                |${if (title.isSensitive()) "" else title}
+                |https://live.bilibili.com/$liveRoom
                 
-                ${if (name.isSensitive()) "" else "名称: $name"}
-                ${if (sign.isSensitive()) "" else "签名: $sign"}
-                粉丝数: $fans
-                主页: https://space.bilibili.com/$uid
-            """.trimIndent()
+                |${if (name.isSensitive()) "" else "名称: $name"}
+                |${if (sign.isSensitive()) "" else "签名: $sign"}
+                |粉丝数: $fans
+                |主页: https://space.bilibili.com/$uid
+            """.trimMargin()
         } else {
             """
-                ${if (name.isSensitive()) "" else "名称: $name"}
-                ${if (sign.isSensitive()) "" else "签名: $sign"}
-                粉丝数: $fans
-                主页: https://space.bilibili.com/$uid
-                直播间: https://live.bilibili.com/$liveRoom
-            """.trimIndent()
+                |${if (name.isSensitive()) "" else "名称: $name"}
+                |${if (sign.isSensitive()) "" else "签名: $sign"}
+                |粉丝数: $fans
+                |主页: https://space.bilibili.com/$uid
+                |直播间: https://live.bilibili.com/$liveRoom
+            """.trimMargin()
         }.toText(),
     )
 
