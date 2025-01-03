@@ -110,7 +110,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                         val isNameSensitive = name.isSensitive()
                         val filteredName = if (uid.toString() in sensitiveLivers) "UID: $uid" else {
                             if (isNameSensitive) {
-                                logger.warn("检测到主播 ${name}(UID: ${uid}) 名称疑似含有敏感词，已替换为UID")
+                                logger.warn("检测到主播 UID: $uid($name) 名称疑似含有敏感词，已替换为UID")
                                 sensitiveLivers += uid.toString()
                                 saveConfig("LiveNotify", "sensitiveLivers.json", Json.encodeToString(sensitiveLivers))
                                 "UID: $uid"
@@ -126,7 +126,7 @@ class LiveNotify @Autowired constructor(app: Application) {
 
                         if (liveStatus == 1 && liveTime > lastLiveTime.getOrDefault(uid.toString(), 0)) {
                             // 开播通知
-                            logger.info("检测到 ${name}(UID: ${uid}) 开播")
+                            logger.info("检测到 UID: $uid($name) 开播")
 
                             lastLiveTime[uid.toString()] = liveTime
                             val groups = liveUIDBind[uid.toString()]!!.filter {
@@ -137,7 +137,7 @@ class LiveNotify @Autowired constructor(app: Application) {
 
                             val filteredTitle = if (uid.toString() in sensitiveLivers) "" else {
                                 if (title.isSensitive()) {
-                                    logger.warn("检测到主播 ${name}(UID: ${uid}) 直播间标题疑似含有敏感词，已替换为UID")
+                                    logger.warn("检测到主播 UID: $uid($name) 直播间标题疑似含有敏感词，已替换为UID")
                                     sensitiveLivers += uid.toString()
                                     saveConfig(
                                         "LiveNotify",
@@ -160,14 +160,14 @@ class LiveNotify @Autowired constructor(app: Application) {
                                     ) ?: throw Exception("获取群 ${group.ID} 失败")
                                     succeedGroups += group.ID.toString()
                                 } catch (e: Exception) {
-                                    logger.error("向群 ${group.ID} 推送 ${name}(UID: ${uid}) 开播通知失败：$e")
+                                    logger.error("向群 ${group.ID} 推送 UID: $uid($name) 开播通知失败：$e")
                                 }
                                 delay(1.seconds)
                             }
-                            logger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 ${name}(UID: ${uid}) 的开播通知：${succeedGroups.joinToString()}")
+                            logger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的开播通知：${succeedGroups.joinToString()}")
                         } else if (liveStatus != 1 && lastLiveTime.getOrDefault(uid.toString(), 0) > 1) {
                             // 下播通知
-                            logger.info("检测到 ${name}(UID: ${uid}) 下播")
+                            logger.info("检测到 UID: $uid($name) 下播")
 
                             lastLiveTime -= uid.toString()
                             val groups = liveUIDBind[uid.toString()]!!.filter {
@@ -183,11 +183,11 @@ class LiveNotify @Autowired constructor(app: Application) {
                                         ?: throw Exception("获取群 ${group.ID} 失败")
                                     succeedGroups += group.ID.toString()
                                 } catch (e: Exception) {
-                                    logger.error("向群 ${group.ID} 推送 ${name}(UID: ${uid}) 下播通知失败：$e")
+                                    logger.error("向群 ${group.ID} 推送 UID: $uid($name) 下播通知失败：$e")
                                 }
                                 delay(1.seconds)
                             }
-                            logger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 ${name}(UID: ${uid}) 的下播通知：${succeedGroups.joinToString()}")
+                            logger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的下播通知：${succeedGroups.joinToString()}")
                         }
                     }
                 }
