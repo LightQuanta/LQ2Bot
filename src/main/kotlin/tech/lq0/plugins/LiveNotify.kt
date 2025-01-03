@@ -137,7 +137,7 @@ class LiveNotify @Autowired constructor(app: Application) {
 
                             val filteredTitle = if (uid.toString() in sensitiveLivers) "" else {
                                 if (title.isSensitive()) {
-                                    logger.warn("检测到主播 UID: $uid($name) 直播间标题疑似含有敏感词，已替换为UID")
+                                    logger.warn("检测到主播 UID: $uid($name) 直播间标题($title)疑似含有敏感词，已替换为UID")
                                     sensitiveLivers += uid.toString()
                                     saveConfig(
                                         "LiveNotify",
