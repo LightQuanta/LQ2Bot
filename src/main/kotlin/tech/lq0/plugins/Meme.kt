@@ -7,7 +7,6 @@ import love.forte.simbot.component.onebot.v11.core.event.message.OneBotFriendMes
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
-import love.forte.simbot.logger.LoggerFactory
 import love.forte.simbot.message.OfflineImage.Companion.toOfflineImage
 import love.forte.simbot.message.messagesOf
 import love.forte.simbot.message.toMessages
@@ -25,8 +24,6 @@ import kotlin.io.path.Path
 
 @Component
 class Meme {
-
-    val logger = LoggerFactory.getLogger("MEME")
 
     /**
      * setrep预设回复数据缓存
@@ -83,7 +80,7 @@ class Meme {
                             )
                         )
                     } catch (e: Exception) {
-                        logger.error("发送图片 $imageName 失败：$e")
+                        memeLogger.error("发送图片 $imageName 失败：$e")
                         directlySend(imageName)
                     }
                 } else {
@@ -131,7 +128,7 @@ class Meme {
             is OneBotNormalGroupMessageEvent -> "在群${content().name}(${content().id})中"
             else -> ""
         }
-        logger.info("管理员$name($authorId)${groupInfo}进行了更新操作：${messageContent.plainText}")
+        memeLogger.info("管理员$name($authorId)${groupInfo}进行了更新操作：${messageContent.plainText}")
     }
 
     @Listener
@@ -281,7 +278,7 @@ class Meme {
             is OneBotNormalGroupMessageEvent -> "群${content().id}(${content().name})的"
             else -> ""
         }
-        logger.info("来自$groupInfo$name($authorId)的建议：${messageContent.plainText}")
+        memeLogger.info("来自$groupInfo$name($authorId)的建议：${messageContent.plainText}")
 
         (memeConfig.notificationReceiver - authorId.toString())
             .forEach {

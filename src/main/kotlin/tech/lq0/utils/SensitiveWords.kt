@@ -3,7 +3,6 @@ package tech.lq0.utils
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import love.forte.simbot.component.onebot.v11.core.actor.OneBotGroup
-import love.forte.simbot.logger.LoggerFactory
 import net.sourceforge.pinyin4j.PinyinHelper
 import net.sourceforge.pinyin4j.format.HanyuPinyinCaseType
 import net.sourceforge.pinyin4j.format.HanyuPinyinOutputFormat
@@ -27,8 +26,6 @@ val pinyinFormat = HanyuPinyinOutputFormat().apply {
     vCharType = HanyuPinyinVCharType.WITH_V
 }
 
-val logger = LoggerFactory.getLogger("BAN")
-
 /**
  * 拉黑指定成员
  * @param member 成员ID
@@ -37,19 +34,19 @@ val logger = LoggerFactory.getLogger("BAN")
 suspend fun banMember(member: String, group: OneBotGroup?) {
     if (member !in botPermissionConfig.admin) {
         botPermissionConfig.memberBlackList.add(member)
-        logger.info("已拉黑用户QQ: $member")
+        banLogger.info("已拉黑用户QQ: $member")
     }
 
     if (group != null) {
         val count = (groupViolationCount[group.id.toString()] ?: 0) + 1
         groupViolationCount[group.id.toString()] = count
         saveConfig("SensitiveWords", "violation.json", Json.encodeToString(groupViolationCount), false)
-        logger.info("群 $group 已累计触发敏感词 $count 次")
+        banLogger.info("群 $group 已累计触发敏感词 $count 次")
 
         if (count >= 3) {
             botPermissionConfig.groupBlackList += group.id.toString()
             group.send("该群由于多次触发敏感词已被Bot永久拉黑，请联系Bot管理员进行进一步操作")
-            logger.info("群 $group 已被永久拉黑")
+            banLogger.info("群 $group 已被永久拉黑")
         }
     }
     saveConfig("BotConfig", "permission.json", Json.encodeToString(botPermissionConfig))

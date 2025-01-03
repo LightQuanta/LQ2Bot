@@ -17,7 +17,6 @@ import love.forte.simbot.common.id.StringID.Companion.ID
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
-import love.forte.simbot.logger.LoggerFactory
 import love.forte.simbot.message.OfflineImage.Companion.toOfflineImage
 import love.forte.simbot.message.messagesOf
 import love.forte.simbot.message.toText
@@ -66,7 +65,6 @@ const val MAXIMUM_SUBSCRIBE_COUNT = 300
 
 @Component
 class LiveNotify @Autowired constructor(app: Application) {
-    val logger = LoggerFactory.getLogger("LIVE")
 
     init {
         CoroutineScope(Dispatchers.IO).launch {
@@ -95,7 +93,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                         }.readBytes().decodeToString()
                     )
                 } catch (e: Exception) {
-                    logger.error("批量获取直播间信息失败：$e")
+                    liveLogger.error("批量获取直播间信息失败：$e")
                     delay(30.seconds)
                     continue
                 }
@@ -110,7 +108,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                         val isNameSensitive = name.isSensitive()
                         val filteredName = if (uid.toString() in sensitiveLivers) "UID: $uid" else {
                             if (isNameSensitive) {
-                                logger.warn("检测到主播 UID: $uid($name) 名称疑似含有敏感词，已替换为UID")
+                                liveLogger.warn("检测到主播 UID: $uid($name) 名称疑似含有敏感词，已替换为UID")
                                 sensitiveLivers += uid.toString()
                                 saveConfig("LiveNotify", "sensitiveLivers.json", Json.encodeToString(sensitiveLivers))
                                 "UID: $uid"
@@ -126,7 +124,7 @@ class LiveNotify @Autowired constructor(app: Application) {
 
                         if (liveStatus == 1 && liveTime > lastLiveTime.getOrDefault(uid.toString(), 0)) {
                             // 开播通知
-                            logger.info("检测到 UID: $uid($name) 开播")
+                            liveLogger.info("检测到 UID: $uid($name) 开播")
 
                             lastLiveTime[uid.toString()] = liveTime
                             val groups = liveUIDBind[uid.toString()]!!.filter {
@@ -137,7 +135,7 @@ class LiveNotify @Autowired constructor(app: Application) {
 
                             val filteredTitle = if (uid.toString() in sensitiveLivers) "" else {
                                 if (title.isSensitive()) {
-                                    logger.warn("检测到主播 UID: $uid($name) 直播间标题($title)疑似含有敏感词，已替换为UID")
+                                    liveLogger.warn("检测到主播 UID: $uid($name) 直播间标题($title)疑似含有敏感词，已替换为UID")
                                     sensitiveLivers += uid.toString()
                                     saveConfig(
                                         "LiveNotify",
@@ -160,14 +158,14 @@ class LiveNotify @Autowired constructor(app: Application) {
                                     ) ?: throw Exception("获取群 ${group.ID} 失败")
                                     succeedGroups += group.ID.toString()
                                 } catch (e: Exception) {
-                                    logger.error("向群 ${group.ID} 推送 UID: $uid($name) 开播通知失败：$e")
+                                    liveLogger.error("向群 ${group.ID} 推送 UID: $uid($name) 开播通知失败：$e")
                                 }
                                 delay(1.seconds)
                             }
-                            logger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的开播通知：${succeedGroups.joinToString()}")
+                            liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的开播通知：${succeedGroups.joinToString()}")
                         } else if (liveStatus != 1 && lastLiveTime.getOrDefault(uid.toString(), 0) > 1) {
                             // 下播通知
-                            logger.info("检测到 UID: $uid($name) 下播")
+                            liveLogger.info("检测到 UID: $uid($name) 下播")
 
                             lastLiveTime -= uid.toString()
                             val groups = liveUIDBind[uid.toString()]!!.filter {
@@ -183,11 +181,11 @@ class LiveNotify @Autowired constructor(app: Application) {
                                         ?: throw Exception("获取群 ${group.ID} 失败")
                                     succeedGroups += group.ID.toString()
                                 } catch (e: Exception) {
-                                    logger.error("向群 ${group.ID} 推送 UID: $uid($name) 下播通知失败：$e")
+                                    liveLogger.error("向群 ${group.ID} 推送 UID: $uid($name) 下播通知失败：$e")
                                 }
                                 delay(1.seconds)
                             }
-                            logger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的下播通知：${succeedGroups.joinToString()}")
+                            liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的下播通知：${succeedGroups.joinToString()}")
                         }
                     }
                 }
@@ -238,7 +236,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                 val subscribedGroups = liveUIDBind.getOrPut(uid) { mutableSetOf() }
                 subscribedGroups += groupId.toString()
             }
-            logger.info(
+            liveLogger.info(
                 "群 $groupId(${content().name}) 订阅了${newSubscribeList.size}个主播：${
                     newSubscribeList.joinToString { getUIDNameString(it) }
                 }"
@@ -259,7 +257,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                 val bindGroups = liveUIDBind[uid]!!.also { it -= groupId.toString() }
                 if (bindGroups.isEmpty()) liveUIDBind -= uid
             }
-            logger.info(
+            liveLogger.info(
                 "群 $groupId(${content().name}) 取消订阅了${uidToRemove.size}个主播：${
                     uidToRemove.joinToString { getUIDNameString(it) }
                 }"
@@ -336,7 +334,7 @@ class LiveNotify @Autowired constructor(app: Application) {
             liveUIDBind -= num
 
             saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
-            logger.info("清空订阅了 ${getUIDNameString(num)} 的${groups.size}个群：${groups.joinToString()}")
+            liveLogger.info("清空订阅了 ${getUIDNameString(num)} 的${groups.size}个群：${groups.joinToString()}")
             directlySend("已清空订阅 ${getUIDNameString(num)} 的${groups.size}个群：${groups.joinToString()}")
         } else {
             // 清空该群订阅的所有主播，num为群号
@@ -347,7 +345,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                 }.onEach { if (liveUIDBind[it]!!.isEmpty()) liveUIDBind -= it }
 
                 saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
-                logger.info("清空群 $num 订阅的${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
+                liveLogger.info("清空群 $num 订阅的${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
                 directlySend("已清空群 $num 订阅的${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
             } else {
                 directlySend("该群没有订阅任何主播！")

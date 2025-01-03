@@ -11,10 +11,7 @@ import org.springframework.stereotype.Component
 import tech.lq0.interceptor.ChinesePunctuationReplace
 import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.interceptor.RequireBotAdmin
-import tech.lq0.utils.botPermissionConfig
-import tech.lq0.utils.directlySend
-import tech.lq0.utils.groupViolationCount
-import tech.lq0.utils.saveConfig
+import tech.lq0.utils.*
 
 @Component
 class BlackListControl {
@@ -40,8 +37,15 @@ class BlackListControl {
 
         directlySend(
             when (operation) {
-                "ban" -> "已拉黑QQ: ${list.joinToString()}"
-                "unban" -> "已解封QQ: ${list.joinToString()}"
+                "ban" -> "已拉黑QQ ${list.joinToString()}"
+                "unban" -> "已解封QQ ${list.joinToString()}"
+                else -> "未知操作"
+            }
+        )
+        banLogger.info(
+            when (operation) {
+                "ban" -> "$authorId 已拉黑QQ ${list.joinToString()}"
+                "unban" -> "$authorId 已解封QQ ${list.joinToString()}"
                 else -> "未知操作"
             }
         )
@@ -72,8 +76,15 @@ class BlackListControl {
 
         directlySend(
             when (operation) {
-                "bangroup" -> "已拉黑QQ群: ${list.joinToString()}"
-                "unbangroup" -> "已解封QQ群: ${list.joinToString()}"
+                "bangroup" -> "已拉黑群 ${list.joinToString()}"
+                "unbangroup" -> "已解封群 ${list.joinToString()}"
+                else -> "未知操作"
+            }
+        )
+        banLogger.info(
+            when (operation) {
+                "bangroup" -> "$authorId 已拉黑群 ${list.joinToString()}"
+                "unbangroup" -> "$authorId 已解封群 ${list.joinToString()}"
                 else -> "未知操作"
             }
         )
@@ -102,8 +113,15 @@ class BlackListControl {
 
         directlySend(
             when (operation) {
-                "enablebot" -> "已在QQ群: ${list.joinToString()} 中禁用bot"
-                "disablebot" -> "已在QQ群: ${list.joinToString()} 中启用bot"
+                "enablebot" -> "已在群 ${list.joinToString()} 中禁用bot"
+                "disablebot" -> "已在群 ${list.joinToString()} 中启用bot"
+                else -> "未知操作"
+            }
+        )
+        banLogger.info(
+            when (operation) {
+                "enablebot" -> "$authorId 已在群 ${list.joinToString()} 中禁用bot"
+                "disablebot" -> "$authorId 已在群 ${list.joinToString()} 中启用bot"
                 else -> "未知操作"
             }
         )
@@ -130,6 +148,13 @@ class BlackListControl {
             when (operation) {
                 "enablebot" -> "已在此群启用bot"
                 "disablebot" -> "已在此群禁用bot"
+                else -> "未知操作"
+            }
+        )
+        banLogger.info(
+            when (operation) {
+                "enablebot" -> "$authorId 在群 $groupID 中启用bot"
+                "disablebot" -> "$authorId 在 $groupID 中禁用bot"
                 else -> "未知操作"
             }
         )
