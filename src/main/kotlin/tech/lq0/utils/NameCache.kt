@@ -5,8 +5,8 @@ package tech.lq0.utils
  */
 fun getUIDNameString(uid: String): String {
     return if (uid in UIDNameCache && uid !in sensitiveLivers) {
-        "$uid(${UIDNameCache[uid]})"
+        "${UIDNameCache[uid]}(UID: $uid)"
     } else {
-        uid
+        "UID: $uid"
     }
 }

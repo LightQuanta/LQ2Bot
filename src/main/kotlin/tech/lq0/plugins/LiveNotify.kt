@@ -306,7 +306,7 @@ class LiveNotify @Autowired constructor(app: Application) {
             if (subscribedGroups.isEmpty()) {
                 "目前还没有群订阅该主播！"
             } else {
-                "订阅主播 UID: $name 的${subscribedGroups.size}个群：${subscribedGroups.joinToString()}"
+                "订阅主播 $name 的${subscribedGroups.size}个群：${subscribedGroups.joinToString()}"
             }
         )
     }
@@ -330,14 +330,14 @@ class LiveNotify @Autowired constructor(app: Application) {
             // 清空订阅该UID的所有群，num为UID
             val groups = liveUIDBind[num]
             if (groups == null) {
-                directlySend("该主播 UID: ${getUIDNameString(num)} 没有任何群订阅！")
+                directlySend("该主播 ${getUIDNameString(num)} 没有任何群订阅！")
                 return
             }
             liveUIDBind -= num
 
             saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
-            logger.info("清空订阅了 UID: ${getUIDNameString(num)} 的${groups.size}个群：${groups.joinToString()}")
-            directlySend("已清空订阅 UID: ${getUIDNameString(num)} 的${groups.size}个群：${groups.joinToString()}")
+            logger.info("清空订阅了 ${getUIDNameString(num)} 的${groups.size}个群：${groups.joinToString()}")
+            directlySend("已清空订阅 ${getUIDNameString(num)} 的${groups.size}个群：${groups.joinToString()}")
         } else {
             // 清空该群订阅的所有主播，num为群号
             if (liveUIDBind.any { num in it.value }) {
