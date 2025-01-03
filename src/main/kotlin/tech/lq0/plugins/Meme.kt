@@ -80,7 +80,7 @@ class Meme {
                             )
                         )
                     } catch (e: Exception) {
-                        memeLogger.error("发送图片 $imageName 失败：$e")
+                        memeLogger.error("发送图片 $imageName 失败: $e")
                         directlySend(imageName)
                     }
                 } else {
@@ -128,7 +128,7 @@ class Meme {
             is OneBotNormalGroupMessageEvent -> "在群${content().name}(${content().id})中"
             else -> ""
         }
-        memeLogger.info("管理员$name($authorId)${groupInfo}进行了更新操作：${messageContent.plainText}")
+        memeLogger.info("管理员$name($authorId)${groupInfo}进行了更新操作: ${messageContent.plainText}")
     }
 
     @Listener
@@ -247,7 +247,7 @@ class Meme {
             val meme = findMemeInstance(keyword) ?: return
             val replies = meme.replyContent.filter { content in it }
             if (replies.isNotEmpty()) {
-                directlySend("查找到的回复：${replies.take(8).joinToString()}")
+                directlySend("查找到的回复: ${replies.take(8).joinToString()}")
             } else {
                 directlySend("未发现该回复！")
             }
@@ -258,7 +258,7 @@ class Meme {
                     .any { word -> keyword.lowercase() in word }
             }
             if (memes.isNotEmpty()) {
-                directlySend("查找到的关键词：${memes.take(8).joinToString { it.name }}")
+                directlySend("查找到的关键词: ${memes.take(8).joinToString { it.name }}")
             } else {
                 directlySend("未发现该关键词！")
             }
@@ -278,14 +278,14 @@ class Meme {
             is OneBotNormalGroupMessageEvent -> "群${content().id}(${content().name})的"
             else -> ""
         }
-        memeLogger.info("来自$groupInfo$name($authorId)的建议：${messageContent.plainText}")
+        memeLogger.info("来自$groupInfo$name($authorId)的建议: ${messageContent.plainText}")
 
         (memeConfig.notificationReceiver - authorId.toString())
             .forEach {
                 bot.contactRelation.contact(it.ID)
                     ?.send(
                         listOf(
-                            "来自$groupInfo$name(${authorId})的建议：\n".toText(),
+                            "来自$groupInfo$name(${authorId})的建议: \n".toText(),
                             *messageContent.messages.toList().toTypedArray()
                         ).toMessages()
                     )

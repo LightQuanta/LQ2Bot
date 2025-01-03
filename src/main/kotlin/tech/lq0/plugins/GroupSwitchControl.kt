@@ -68,8 +68,8 @@ class GroupSwitchControl {
         // TODO 正确实现启用插件展示
         """
             当前插件列表
-            已启用：${groupPluginConfig[content().id.toString()]?.enabled?.joinToString() ?: "无"}
-            已禁用：${groupPluginConfig[content().id.toString()]?.disabled?.joinToString() ?: "无"}
+            已启用: ${groupPluginConfig[content().id.toString()]?.enabled?.joinToString() ?: "无"}
+            已禁用: ${groupPluginConfig[content().id.toString()]?.disabled?.joinToString() ?: "无"}
         """.trimIndent()
     )
 

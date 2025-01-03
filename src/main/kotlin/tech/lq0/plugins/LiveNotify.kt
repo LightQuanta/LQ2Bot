@@ -93,7 +93,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                         }.readBytes().decodeToString()
                     )
                 } catch (e: Exception) {
-                    liveLogger.error("批量获取直播间信息失败：$e")
+                    liveLogger.error("批量获取直播间信息失败: $e")
                     delay(30.seconds)
                     continue
                 }
@@ -158,11 +158,11 @@ class LiveNotify @Autowired constructor(app: Application) {
                                     ) ?: throw Exception("获取群 ${group.ID} 失败")
                                     succeedGroups += group.ID.toString()
                                 } catch (e: Exception) {
-                                    liveLogger.error("向群 ${group.ID} 推送 UID: $uid($name) 开播通知失败：$e")
+                                    liveLogger.error("向群 ${group.ID} 推送 UID: $uid($name) 开播通知失败: $e")
                                 }
                                 delay(1.seconds)
                             }
-                            liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的开播通知：${succeedGroups.joinToString()}")
+                            liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的开播通知: ${succeedGroups.joinToString()}")
                         } else if (liveStatus != 1 && lastLiveTime.getOrDefault(uid.toString(), 0) > 1) {
                             // 下播通知
                             liveLogger.info("检测到 UID: $uid($name) 下播")
@@ -181,11 +181,11 @@ class LiveNotify @Autowired constructor(app: Application) {
                                         ?: throw Exception("获取群 ${group.ID} 失败")
                                     succeedGroups += group.ID.toString()
                                 } catch (e: Exception) {
-                                    liveLogger.error("向群 ${group.ID} 推送 UID: $uid($name) 下播通知失败：$e")
+                                    liveLogger.error("向群 ${group.ID} 推送 UID: $uid($name) 下播通知失败: $e")
                                 }
                                 delay(1.seconds)
                             }
-                            liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的下播通知：${succeedGroups.joinToString()}")
+                            liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的下播通知: ${succeedGroups.joinToString()}")
                         }
                     }
                 }
@@ -237,12 +237,12 @@ class LiveNotify @Autowired constructor(app: Application) {
                 subscribedGroups += groupId.toString()
             }
             liveLogger.info(
-                "群 $groupId(${content().name}) 订阅了${newSubscribeList.size}个主播：${
+                "群 $groupId(${content().name}) 订阅了${newSubscribeList.size}个主播: ${
                     newSubscribeList.joinToString { getUIDNameString(it) }
                 }"
             )
             directlySend(
-                "已订阅以下${newSubscribeList.size}个主播：\n${newSubscribeList.joinToString { getUIDNameString(it) }}"
+                "已订阅以下${newSubscribeList.size}个主播: \n${newSubscribeList.joinToString { getUIDNameString(it) }}"
             )
         } else {
             val subscribed = liveUIDBind.filter { groupId.toString() in it.value }.keys
@@ -258,12 +258,12 @@ class LiveNotify @Autowired constructor(app: Application) {
                 if (bindGroups.isEmpty()) liveUIDBind -= uid
             }
             liveLogger.info(
-                "群 $groupId(${content().name}) 取消订阅了${uidToRemove.size}个主播：${
+                "群 $groupId(${content().name}) 取消订阅了${uidToRemove.size}个主播: ${
                     uidToRemove.joinToString { getUIDNameString(it) }
                 }"
             )
             directlySend(
-                "已取消订阅以下${uidToRemove.size}个主播：\n${uidToRemove.joinToString { getUIDNameString(it) }}"
+                "已取消订阅以下${uidToRemove.size}个主播: \n${uidToRemove.joinToString { getUIDNameString(it) }}"
             )
         }
         saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
@@ -287,7 +287,7 @@ class LiveNotify @Autowired constructor(app: Application) {
             if (subscribedUIDs.isEmpty()) {
                 "该群还没有订阅主播！"
             } else {
-                "该群订阅的${subscribedUIDs.size}个主播UID：${nameOrUIDs.joinToString()}"
+                "该群订阅的${subscribedUIDs.size}个主播UID: ${nameOrUIDs.joinToString()}"
             }
         )
     }
@@ -304,7 +304,7 @@ class LiveNotify @Autowired constructor(app: Application) {
             if (subscribedGroups.isEmpty()) {
                 "目前还没有群订阅该主播！"
             } else {
-                "订阅主播 $name 的${subscribedGroups.size}个群：${subscribedGroups.joinToString()}"
+                "订阅主播 $name 的${subscribedGroups.size}个群: ${subscribedGroups.joinToString()}"
             }
         )
     }
@@ -334,8 +334,8 @@ class LiveNotify @Autowired constructor(app: Application) {
             liveUIDBind -= num
 
             saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
-            liveLogger.info("清空订阅了 ${getUIDNameString(num)} 的${groups.size}个群：${groups.joinToString()}")
-            directlySend("已清空订阅 ${getUIDNameString(num)} 的${groups.size}个群：${groups.joinToString()}")
+            liveLogger.info("清空订阅了 ${getUIDNameString(num)} 的${groups.size}个群: ${groups.joinToString()}")
+            directlySend("已清空订阅 ${getUIDNameString(num)} 的${groups.size}个群: ${groups.joinToString()}")
         } else {
             // 清空该群订阅的所有主播，num为群号
             if (liveUIDBind.any { num in it.value }) {
@@ -345,8 +345,8 @@ class LiveNotify @Autowired constructor(app: Application) {
                 }.onEach { if (liveUIDBind[it]!!.isEmpty()) liveUIDBind -= it }
 
                 saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
-                liveLogger.info("清空群 $num 订阅的${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
-                directlySend("已清空群 $num 订阅的${removed.size}个主播：${removed.joinToString { getUIDNameString(it) }}")
+                liveLogger.info("清空群 $num 订阅的${removed.size}个主播: ${removed.joinToString { getUIDNameString(it) }}")
+                directlySend("已清空群 $num 订阅的${removed.size}个主播: ${removed.joinToString { getUIDNameString(it) }}")
             } else {
                 directlySend("该群没有订阅任何主播！")
                 return
