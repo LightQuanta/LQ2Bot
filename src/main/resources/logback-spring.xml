@@ -5,7 +5,7 @@
         </encoder>
     </appender>
 
-    <appender name="CHAT" class="ch.qos.logback.core.FileAppender">
+    <appender name="CHAT" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>lq2bot/logs/chat/latest.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>lq2bot/logs/chat/%d{yyyy-MM-dd}.log</fileNamePattern>
@@ -15,7 +15,7 @@
         </encoder>
     </appender>
 
-    <appender name="BAN" class="ch.qos.logback.core.FileAppender">
+    <appender name="BAN" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>lq2bot/logs/ban/latest.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>lq2bot/logs/ban/%d{yyyy-MM-dd}.log</fileNamePattern>
@@ -25,7 +25,7 @@
         </encoder>
     </appender>
 
-    <appender name="MEME" class="ch.qos.logback.core.FileAppender">
+    <appender name="MEME" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>lq2bot/logs/meme/latest.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>lq2bot/logs/meme/%d{yyyy-MM-dd}.log</fileNamePattern>
@@ -35,7 +35,7 @@
         </encoder>
     </appender>
 
-    <appender name="LIVE" class="ch.qos.logback.core.FileAppender">
+    <appender name="LIVE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>lq2bot/logs/live/latest.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>lq2bot/logs/live/%d{yyyy-MM-dd}.log</fileNamePattern>
