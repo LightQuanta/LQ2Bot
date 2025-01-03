@@ -1,10 +1,10 @@
 package tech.lq0.plugins
 
 import love.forte.simbot.component.onebot.v11.core.event.message.*
-import love.forte.simbot.message.safePlainText
 import love.forte.simbot.quantcat.common.annotations.Listener
 import org.springframework.stereotype.Component
 import tech.lq0.utils.chatLogger
+import tech.lq0.utils.toText
 
 @Component
 class ChatLogger {
@@ -20,19 +20,19 @@ class ChatLogger {
                     is OneBotAnonymousGroupMessageEvent -> "${author().nick ?: author().name}($authorId)"
                     else -> "系统消息"
                 }
-                chatLogger.info("[${content.name}(${content.id})] $authorInfo -> ${messageContent.safePlainText}")
+                chatLogger.info("[${content.name}(${content.id})] $authorInfo -> ${messageContent.toText()}")
             }
 
             is OneBotFriendMessageEvent -> {
                 val content = content()
-                val authorInfo = "${content.name}$authorId"
-                chatLogger.info("$authorInfo -> ${messageContent.safePlainText}")
+                val authorInfo = "${content.name}($authorId)"
+                chatLogger.info("$authorInfo -> ${messageContent.toText()}")
             }
 
             is OneBotGroupPrivateMessageEvent -> {
                 val content = content()
-                val authorInfo = "${content.name}$authorId"
-                chatLogger.info("$authorInfo -> ${messageContent.safePlainText}")
+                val authorInfo = "${content.name}($authorId)"
+                chatLogger.info("$authorInfo -> ${messageContent.toText()}")
             }
         }
     }

@@ -7,6 +7,7 @@ import love.forte.simbot.quantcat.common.annotations.Listener
 import org.springframework.stereotype.Component
 import tech.lq0.interceptor.ChinesePunctuationReplace
 import tech.lq0.interceptor.FunctionSwitch
+import tech.lq0.utils.replyAndLog
 
 @Component
 class Dice {
@@ -18,7 +19,7 @@ class Dice {
     suspend fun OneBotMessageEvent.dice(
         @FilterValue("max") max: Int = 6,
         @FilterValue("count") count: Int = 1,
-    ) = reply(generateDiceResult(max, count))
+    ) = replyAndLog(generateDiceResult(max, count))
 
     fun generateDiceResult(max: Int, count: Int): String {
         val maximumPoint = max.coerceAtLeast(1)
