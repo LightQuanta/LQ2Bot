@@ -6,14 +6,18 @@ import love.forte.simbot.component.onebot.v11.core.event.notice.OneBotGroupMembe
 import love.forte.simbot.component.onebot.v11.core.event.request.OneBotFriendRequestEvent
 import love.forte.simbot.component.onebot.v11.core.event.request.OneBotGroupRequestEvent
 import love.forte.simbot.event.RequestEvent
+import love.forte.simbot.logger.LoggerFactory
 import love.forte.simbot.quantcat.common.annotations.Listener
 import org.springframework.stereotype.Component
 import tech.lq0.utils.botPermissionConfig
+import tech.lq0.utils.getUIDNameString
 import tech.lq0.utils.liveUIDBind
 import tech.lq0.utils.saveConfig
 
 @Component
 class RequestProcess {
+
+    val liveLogger = LoggerFactory.getLogger("LIVE")
 
     /**
      * 自动接受非黑名单用户的好友请求
@@ -55,9 +59,13 @@ class RequestProcess {
         val group = groupId.toString()
 
         // 清除开播通知订阅信息
-        if (liveUIDBind.any { group in it.value }) {
-            liveUIDBind.forEach { it.value -= group }
+        val uidList = liveUIDBind.filter { group in it.value }.onEach {
+            it.value -= group
+            if (it.value.isEmpty()) liveUIDBind -= it.key
+        }
+        if (uidList.isNotEmpty()) {
             saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
+            liveLogger.info("已退出群 $group ，清空了该群订阅的${uidList.size}个主播：${uidList.map { getUIDNameString(it.key) }}")
         }
     }
 }
