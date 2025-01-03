@@ -78,9 +78,25 @@ val sensitiveLivers by lazy {
  * 主播UID -> 主播名称
  */
 val UIDNameCache by lazy {
-    readJSONConfigAs<MutableMap<String, String>>("LiveNotify", "UIDNameCache.json") ?: mutableMapOf()
+    readJSONConfigAs<MutableMap<String, String>>("Cache", "UID2Name.json") ?: mutableMapOf()
 }
 
 val alarms by lazy {
     readJSONConfigAs<MutableMap<String, MutableSet<String>>>("Alarm", "alarms.json") ?: mutableMapOf()
+}
+
+@Serializable
+data class VTBsUIDCache(
+    var lastUpdateTime: Long = 0,
+    var uidList: MutableSet<Long> = mutableSetOf(),
+)
+
+// 管人列表
+val VTBsCache by lazy {
+    readJSONConfigAs<VTBsUIDCache>("DDTool", "vtbs.json") ?: VTBsUIDCache()
+}
+
+// 群强制单推信息
+val ddToolBind by lazy {
+    readJSONConfigAs<MutableMap<String, Long>>("DDTool", "bind.json") ?: mutableMapOf()
 }

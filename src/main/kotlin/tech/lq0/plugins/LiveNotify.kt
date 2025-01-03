@@ -31,7 +31,7 @@ import tech.lq0.interceptor.FunctionSwitch
 import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.interceptor.RequireBotAdmin
 import tech.lq0.utils.*
-import java.net.URI
+import java.net.URL
 import kotlin.time.Duration.Companion.seconds
 
 
@@ -147,7 +147,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                             }
 
                             val succeedGroups = mutableListOf<String>()
-                            val image = URI(cover).toURL().toResource().toOfflineImage()
+                            val image = URL(cover).toResource().toOfflineImage()
                             for (group in groups) {
                                 try {
                                     bot.groupRelation?.group(group.ID)?.send(
@@ -191,7 +191,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                 }
 
                 if (nameCacheChanged) {
-                    saveConfig("LiveNotify", "UIDNameCache.json", Json.encodeToString(UIDNameCache))
+                    saveConfig("Cache", "UID2Name.json", Json.encodeToString(UIDNameCache))
                 }
 
                 saveConfig("LiveNotify", "lastLiveTime.json", Json.encodeToString(lastLiveTime), false)
