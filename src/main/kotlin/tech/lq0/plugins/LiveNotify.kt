@@ -175,19 +175,19 @@ class LiveNotify @Autowired constructor(app: Application) {
                                         && it !in botPermissionConfig.groupDisabledList
                                         && "LiveNotify" !in (groupPluginConfig[it]?.disabled ?: setOf())
                             }
-                            var succeedCount = 0
+                            val succeedGroups = mutableListOf<String>()
 
                             for (group in groups) {
                                 try {
                                     bot.groupRelation?.group(group.ID)?.send("${filteredName}下播了！")
                                         ?: throw Exception("获取群 ${group.ID} 失败")
-                                    succeedCount++
+                                    succeedGroups += group.ID.toString()
                                 } catch (e: Exception) {
                                     logger.error("向群 ${group.ID} 推送 ${name}(UID: ${uid}) 下播通知失败：$e")
                                 }
                                 delay(1.seconds)
                             }
-                            logger.info("已向[${succeedCount}/${groups.size}]个群推送 ${name}(UID: ${uid}) 的下播通知")
+                            logger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 ${name}(UID: ${uid}) 的下播通知：${succeedGroups.joinToString()}")
                         }
                     }
                 }
