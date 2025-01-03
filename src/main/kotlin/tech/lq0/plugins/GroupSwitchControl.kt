@@ -3,16 +3,14 @@ package tech.lq0.plugins
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
+import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
 import love.forte.simbot.quantcat.common.annotations.Filter
 import love.forte.simbot.quantcat.common.annotations.FilterValue
 import love.forte.simbot.quantcat.common.annotations.Listener
 import org.springframework.stereotype.Component
 import tech.lq0.interceptor.ChinesePunctuationReplace
 import tech.lq0.interceptor.RequireAdmin
-import tech.lq0.utils.PluginConfig
-import tech.lq0.utils.directlySend
-import tech.lq0.utils.groupPluginConfig
-import tech.lq0.utils.saveConfig
+import tech.lq0.utils.*
 
 @Component
 class GroupSwitchControl {
@@ -21,7 +19,7 @@ class GroupSwitchControl {
     @ChinesePunctuationReplace
     @RequireAdmin
     @Filter("!{{operation,(enable|disable|reset)}} {{plugins,\\w+(\\D+\\w+)*}}")
-    suspend fun OneBotGroupMessageEvent.control(
+    suspend fun OneBotNormalGroupMessageEvent.control(
         @FilterValue("operation") operation: String,
         @FilterValue("plugins") pluginIDStr: String,
     ) {
@@ -57,6 +55,7 @@ class GroupSwitchControl {
                 else -> "未知操作"
             }
         )
+        chatLogger.info("群 ${groupID}(${content().name}) $authorId(${author().name}) 进行了以下操作: !$operation ${pluginIDs.joinToString()}")
 
         saveConfig("PluginSwitch", "config.json", Json.encodeToString(groupPluginConfig))
     }
