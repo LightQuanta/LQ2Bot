@@ -36,15 +36,15 @@ class Meme {
     @FunctionSwitch("Meme")
     @ChinesePunctuationReplace
     suspend fun OneBotMessageEvent.meme() {
-        val text = this.messageContent.plainText
+        val text = this.messageContent.plainText?.trim()?.lowercase()
         if (text.isNullOrEmpty()) return
 
         memeConfig.memes.firstOrNull {
             listOf(it.name, *it.alias?.toTypedArray() ?: emptyArray())
                 .any { keyword ->
                     when (it.detectType) {
-                        DetectType.EQUAL -> text.lowercase() == keyword.lowercase()
-                        DetectType.STARTS_WITH -> text.lowercase().startsWith(keyword.lowercase())
+                        DetectType.EQUAL -> text == keyword.lowercase()
+                        DetectType.STARTS_WITH -> text.startsWith(keyword.lowercase())
                         DetectType.REGEX_MATCH,
                         DetectType.REGEX_REPLACE -> text.matches(Regex(keyword, RegexOption.IGNORE_CASE))
                     }
@@ -140,7 +140,7 @@ class Meme {
         @FilterValue("reply") reply: String,
     ) {
         // TODO 图片添加支持
-        val replies = reply.split("|")
+        val replies = reply.split("|").filter { it.isNotEmpty() }.map { it.trim() }
         if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
             val meme = findMemeInstance(keyword, false) ?: run {
                 val tempMeme = SingleMeme(name = keyword)
@@ -161,16 +161,16 @@ class Meme {
     @Listener
     @FunctionSwitch("Meme")
     @ChinesePunctuationReplace
-    @Filter("addalias {{keyword,.+?}}#{{reply,.+}}")
+    @Filter("addalias {{keyword,.+?}}#{{alias,.+}}")
     suspend fun OneBotMessageEvent.addAlias(
         @FilterValue("keyword") keyword: String,
-        @FilterValue("reply") alias: String,
+        @FilterValue("alias") alias: String,
     ) {
-        val aliases = alias.split("|")
+        val aliases = alias.split("|").filter { it.isNotEmpty() }.map { it.trim().lowercase() }
         if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
             val meme = findMemeInstance(keyword) ?: return
             if (meme.alias == null) meme.alias = mutableSetOf()
-            meme.alias?.addAll(aliases)
+            meme.alias!!.addAll(aliases)
             memeConfig.lastUpdateTime = Instant.now().epochSecond
 
             saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
@@ -184,15 +184,35 @@ class Meme {
     @Listener
     @FunctionSwitch("Meme")
     @ChinesePunctuationReplace
-    @Filter("delmeme {{keyword,.+}}")
-    suspend fun OneBotMessageEvent.delMeme(@FilterValue("keyword") keyword: String) {
+    @Filter("delmeme {{operation,.+}}")
+    suspend fun OneBotMessageEvent.delMeme(@FilterValue("operation") operation: String) {
+        val keyword = operation.substringBefore("#").trim()
+        val replies = operation.substringAfter("#", "")
+            .split("|")
+            .filter { it.isNotEmpty() }
+            .map { it.trim() }
+            .toSet()
+
         val meme = findMemeInstance(keyword) ?: return
+        if (replies.isNotEmpty() && replies.none { it in meme.replyContent }) {
+            directlySend("在 $keyword 中没有找到该回复！")
+            return
+        }
+
         if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
-            memeConfig.memes.remove(meme)
+            if (replies.isNotEmpty()) {
+                val removed = meme.replyContent intersect replies
+                meme.replyContent -= replies
+
+                directlySend("已移除${keyword}中的以下${removed.size}个回复:\n${removed.joinToString()}")
+            } else {
+                memeConfig.memes -= meme
+                directlySend("已移除$keyword")
+            }
+
             memeConfig.lastUpdateTime = Instant.now().epochSecond
             saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
             logUpdate()
-            directlySend("已移除$keyword")
         } else {
             notifyAdmin()
         }
@@ -240,8 +260,8 @@ class Meme {
     @Filter("findmeme {{query,.+}}")
     suspend fun OneBotMessageEvent.findMeme(@FilterValue("query") query: String) {
         if (query.isEmpty()) return
-        val keyword = query.takeWhile { it != '#' }
-        val content = query.dropWhile { it != '#' }.drop(1)
+        val keyword = query.substringBefore("#").trim().lowercase()
+        val content = query.substringAfter("#", "").trim()
 
         if (content.isNotEmpty()) {
             val meme = findMemeInstance(keyword) ?: return
@@ -299,7 +319,7 @@ class Meme {
      */
     suspend fun OneBotMessageEvent.findMemeInstance(keyword: String, sendFeedback: Boolean = true): SingleMeme? =
         memeConfig.memes.firstOrNull {
-            keyword.lowercase() in setOf(
+            keyword.trim().lowercase() in setOf(
                 it.name,
                 *(it.alias?.toTypedArray() ?: emptyArray())
             ).map { word -> word.lowercase() }
