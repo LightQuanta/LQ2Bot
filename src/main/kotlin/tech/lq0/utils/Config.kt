@@ -36,7 +36,7 @@ data class SingleMeme(
     var alias: MutableSet<String>? = mutableSetOf(),
     val replyContent: LinkedHashSet<String> = linkedSetOf(),
     val whiteListGroups: MutableSet<String>? = mutableSetOf(),
-    val blackListGroups: MutableSet<String>? = mutableSetOf(),
+    var blackListGroups: MutableSet<String>? = mutableSetOf(),
 )
 
 @Serializable

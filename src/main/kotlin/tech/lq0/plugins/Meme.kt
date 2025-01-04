@@ -18,6 +18,7 @@ import love.forte.simbot.resource.toResource
 import org.springframework.stereotype.Component
 import tech.lq0.interceptor.ChinesePunctuationReplace
 import tech.lq0.interceptor.FunctionSwitch
+import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.utils.*
 import java.time.Instant
 import kotlin.io.path.Path
@@ -171,8 +172,8 @@ class Meme {
             val meme = findMemeInstance(keyword) ?: return
             if (meme.alias == null) meme.alias = mutableSetOf()
             meme.alias!!.addAll(aliases)
-            memeConfig.lastUpdateTime = Instant.now().epochSecond
 
+            memeConfig.lastUpdateTime = Instant.now().epochSecond
             saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
             logUpdate()
             directlySend("已更新$keyword")
@@ -216,6 +217,36 @@ class Meme {
         } else {
             notifyAdmin()
         }
+    }
+
+    @Listener
+    @RequireAdmin
+    @FunctionSwitch("Meme")
+    @ChinesePunctuationReplace
+    @Filter("{{operation,(un)?}}banmeme {{keyword,.+}}")
+    suspend fun OneBotNormalGroupMessageEvent.banMeme(
+        @FilterValue("operation") operation: String,
+        @FilterValue("keyword") keyword: String
+    ) {
+        val meme = findMemeInstance(keyword) ?: return
+
+        if (operation == "un") {
+            if (meme.blackListGroups != null && groupId.toString() in meme.blackListGroups!!) {
+                meme.blackListGroups!! -= groupId.toString()
+                directlySend("已在该群重新启用 $keyword")
+            } else {
+                directlySend("该群没有禁用 $keyword ！")
+                return
+            }
+        } else {
+            if (meme.blackListGroups == null) meme.blackListGroups = mutableSetOf()
+            meme.blackListGroups!! += groupId.toString()
+            directlySend("已在该群禁用 $keyword")
+        }
+
+        memeConfig.lastUpdateTime = Instant.now().epochSecond
+        saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
+        logUpdate()
     }
 
     val prettyJsonFormatter = Json { prettyPrint = true }
