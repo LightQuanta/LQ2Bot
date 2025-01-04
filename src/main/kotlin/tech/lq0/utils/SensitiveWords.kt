@@ -54,6 +54,7 @@ suspend fun banMember(member: String, group: OneBotGroup?) {
 
 fun String?.isSensitive(): Boolean {
     if (isNullOrEmpty()) return false
+    if (sensitiveWordsRegex.any { it.containsMatchIn(this) }) return true
 
     // 将数字替换为汉字，方便后续拼音检测
     val numberReplaced = this
@@ -76,6 +77,8 @@ fun String?.isSensitive(): Boolean {
             set(it, PinyinHelper.toHanyuPinyinStringArray(it, pinyinFormat).getOrElse(0) { c -> c })
         }
     }
-    val replaced = numberReplaced.map { pinyin[it] ?: it }.joinToString("")
-    return sensitiveWordsRegex.any { it.containsMatchIn(replaced) }
+    val pinyinAndNumberReplaced = numberReplaced.map { pinyin[it] ?: it }.joinToString("")
+    val pinyinReplaced = this.map { pinyin[it] ?: it }.joinToString("")
+
+    return sensitiveWordsRegex.any { it.containsMatchIn(pinyinAndNumberReplaced) || it.containsMatchIn(pinyinReplaced) }
 }
