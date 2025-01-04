@@ -31,7 +31,6 @@ import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.interceptor.RequireBotAdmin
 import tech.lq0.utils.*
 import java.net.URL
-import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 
 
@@ -62,15 +61,15 @@ val json = Json {
  * 根据秒级时间戳计算时间差值字符串
  */
 fun getTimeDiffStr(startTime: Long, endTime: Long): String {
-    val diffInMillis = endTime - startTime
-    val diffInMinutes = TimeUnit.SECONDS.toMinutes(diffInMillis)
-    val diffInHours = TimeUnit.SECONDS.toHours(diffInMillis)
-    val diffInDays = TimeUnit.SECONDS.toDays(diffInMillis)
+    val diff = endTime - startTime
+    val diffInDays = diff / (60 * 60 * 24)
+    val diffInHours = diff % (60 * 60 * 24) / (60 * 60)
+    val diffInMinutes = diff % (60 * 60) / 60
 
     return when {
-        diffInDays > 0 -> "${diffInDays}天${diffInHours}小时${diffInMinutes}分"
-        diffInHours > 0 -> "${diffInHours}小时${diffInMinutes}分"
-        diffInMinutes > 0 -> "${diffInMinutes}分"
+        diffInDays > 0 -> "${diffInDays}天${diffInHours}小时${diffInMinutes}分钟"
+        diffInHours > 0 -> "${diffInHours}小时${diffInMinutes}分钟"
+        diffInMinutes > 0 -> "${diffInMinutes}分钟"
         else -> "不到一分钟"
     }
 }
