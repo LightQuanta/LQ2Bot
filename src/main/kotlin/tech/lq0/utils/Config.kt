@@ -2,6 +2,8 @@ package tech.lq0.utils
 
 import kotlinx.serialization.Serializable
 
+// PluginSwitch部分
+
 @Serializable
 data class PluginConfig(
     val enabled: MutableSet<String> = mutableSetOf(),
@@ -11,6 +13,8 @@ data class PluginConfig(
 val groupPluginConfig by lazy {
     readJSONConfigAs<MutableMap<String, PluginConfig>>("PluginSwitch", "config.json") ?: mutableMapOf()
 }
+
+// BotConfig部分
 
 @Serializable
 data class UserPermissionConfig(
@@ -23,6 +27,8 @@ data class UserPermissionConfig(
 val botPermissionConfig by lazy {
     readJSONConfigAs<UserPermissionConfig>("BotConfig", "permission.json") ?: UserPermissionConfig()
 }
+
+// Meme部分
 
 @Serializable
 enum class DetectType {
@@ -51,6 +57,8 @@ val memeConfig by lazy {
     readJSONConfigAs<Meme>("Meme", "meme.json") ?: Meme()
 }
 
+// LiveNotify部分
+
 /**
  * 订阅主播上次开播时间记录
  * 主播UID -> 上次开播时间戳（秒）
@@ -65,6 +73,31 @@ val lastLiveTime by lazy {
  */
 val liveUIDBind by lazy {
     readJSONConfigAs<MutableMap<String, MutableSet<String>>>("LiveNotify", "liveUIDBind.json") ?: mutableMapOf()
+}
+
+@Serializable
+data class LiveNotifyGroupConfig(
+    /** 是否通知主播下播 */
+    var notifyStopStream: Boolean = true,
+
+    /** 是否在下播时播报直播时长 */
+    var showStreamTime: Boolean = true,
+
+    /** 是否显示直播标题 */
+    var showTitle: Boolean = true,
+
+    /** 是否显示直播间封面 */
+    var showCover: Boolean = true,
+
+    /** 是否显示直播间链接 */
+    var showLink: Boolean = true,
+)
+
+/**
+ * 每个群的直播推送配置
+ */
+val liveGroupConfig by lazy {
+    readJSONConfigAs<MutableMap<String, LiveNotifyGroupConfig>>("LiveNotify", "liveGroupConfig.json") ?: mutableMapOf()
 }
 
 /**
