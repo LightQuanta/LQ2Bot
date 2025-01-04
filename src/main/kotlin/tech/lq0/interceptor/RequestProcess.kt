@@ -72,7 +72,13 @@ class RequestProcess {
         }
         if (uidList.isNotEmpty()) {
             saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
-            liveLogger.info("已退出群 $group ，清空了该群订阅的${uidList.size}个主播: ${uidList.map { getUIDNameString(it.key) }}")
         }
+
+        if (group in liveGroupConfig) {
+            liveGroupConfig -= group
+            saveConfig("LiveNotify", "liveGroupConfig.json", Json.encodeToString(liveGroupConfig))
+        }
+
+        liveLogger.info("已退出群 $group ，清空了该群订阅的${uidList.size}个主播: ${uidList.map { getUIDNameString(it.key) }}")
     }
 }
