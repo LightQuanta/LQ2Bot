@@ -63,13 +63,14 @@ class Mute {
             if (role != OneBotMemberRole.MEMBER) {
                 content().send("在？有种把管理卸了")
             } else {
-                ban(time.coerceIn(1..720).minutes)
+                val processedTime = time.coerceIn(1..720)
+                ban(processedTime.minutes)
                 // 换用@应该就不用审核用户名了吧（）
                 content().send(
                     messagesOf(
                         "恭喜 ".toText(),
                         At(authorId),
-                        " 成功领取了${time}分钟的禁言套餐！".toText(),
+                        " 成功领取了${processedTime}分钟的禁言套餐！".toText(),
                     )
                 )
             }
