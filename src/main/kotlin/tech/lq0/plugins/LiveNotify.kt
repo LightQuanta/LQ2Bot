@@ -31,6 +31,7 @@ import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.interceptor.RequireBotAdmin
 import tech.lq0.utils.*
 import java.net.URL
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 
@@ -87,18 +88,20 @@ class LiveNotify @Autowired constructor(app: Application) {
             val client = HttpClient()
 
             while (true) {
+                markQueryStart()
+
                 try {
                     // 暂不考虑多Bot支持，直接暴力轮询获取bot实例（）
                     val bot = try {
                         app.botManagers.firstBot()
                     } catch (e: Exception) {
-                        delay(5.seconds)
+                        delayAfterQuery(5.seconds)
                         continue
                     }
 
                     val subscribedUIDs = liveUIDBind.filter { it.value.isNotEmpty() }.map { it.key.toLong() }
                     if (subscribedUIDs.isEmpty()) {
-                        delay(30.seconds)
+                        delayAfterQuery(30.seconds)
                         continue
                     }
 
@@ -111,12 +114,12 @@ class LiveNotify @Autowired constructor(app: Application) {
                         )
                     } catch (e: Exception) {
                         liveLogger.error("批量获取直播间信息失败: $e")
-                        delay(30.seconds)
+                        delayAfterQuery(30.seconds)
                         continue
                     }
                     if (responseData.code != 0) {
                         liveLogger.error("批量获取直播间信息失败: ${responseData.msg}")
-                        delay(30.seconds)
+                        delayAfterQuery(30.seconds)
                         continue
                     }
 
@@ -195,7 +198,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                                     } catch (e: Exception) {
                                         liveLogger.error("向群 ${group.ID} 推送 UID: $uid($name) 开播通知失败: $e")
                                     }
-                                    delay(1.seconds)
+                                    delay(0.5.seconds)
                                 }
                                 liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的开播通知: ${succeedGroups.joinToString()}")
                             } else if (liveStatus != 1 && lastLiveTime.getOrDefault(uid.toString(), 0) > 1) {
@@ -226,7 +229,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                                     } catch (e: Exception) {
                                         liveLogger.error("向群 ${group.ID} 推送 UID: $uid($name) 下播通知失败: $e")
                                     }
-                                    delay(1.seconds)
+                                    delay(0.5.seconds)
                                 }
 
                                 liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的下播通知: ${succeedGroups.joinToString()}")
@@ -239,13 +242,23 @@ class LiveNotify @Autowired constructor(app: Application) {
                     }
 
                     saveConfig("LiveNotify", "lastLiveTime.json", Json.encodeToString(lastLiveTime), false)
-                    delay(30.seconds)
+                    delayAfterQuery(30.seconds)
                 } catch (e: Exception) {
                     liveLogger.error("LiveNotify 监听器发生错误: $e")
-                    delay(30.seconds)
+                    delayAfterQuery(30.seconds)
                 }
             }
         }
+    }
+
+    var queryStartTime: Long = 0
+    fun markQueryStart() {
+        queryStartTime = System.currentTimeMillis()
+    }
+
+    suspend fun delayAfterQuery(duration: kotlin.time.Duration) {
+        val delay = (queryStartTime + duration.inWholeMilliseconds - System.currentTimeMillis()).milliseconds
+        delay(delay)
     }
 
     @Listener
