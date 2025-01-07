@@ -53,8 +53,8 @@ class Meme {
         }?.let {
             // 群黑/白名单处理
             if (this is OneBotGroupMessageEvent) {
-                if (it.whiteListGroups != null && groupId.toString() !in it.whiteListGroups
-                    || it.blackListGroups?.contains(groupId.toString()) == true
+                if (!it.whiteListGroups.isNullOrEmpty() && groupId.toString() !in it.whiteListGroups
+                    || groupId.toString() in (it.blackListGroups ?: setOf())
                 ) return
             }
 

@@ -65,10 +65,12 @@ data object GroupSwitchFactory : AnnotationEventInterceptorFactory {
             val pluginID = functionSwitch?.value ?: return EventResult.invalid()
 
             val groupConfig = groupPluginConfig[event.groupId.toString()]
-            if (groupConfig?.disabled?.contains(pluginID) == true) return EventResult.invalid()
+            // 若禁用此插件，则不进行处理
+            if (pluginID in (groupConfig?.disabled ?: setOf())) return EventResult.invalid()
 
-            val enabled = groupConfig?.enabled?.contains(pluginID) ?: defaultEnabled
-            return if (enabled) {
+            // 查看插件是否明确启用，否则使用插件默认设置
+            val enabled = pluginID in (groupConfig?.enabled ?: setOf())
+            return if (enabled || defaultEnabled) {
                 invoke()
             } else {
                 EventResult.invalid()
