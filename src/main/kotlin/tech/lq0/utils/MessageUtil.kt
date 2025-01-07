@@ -6,6 +6,7 @@ import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupPriv
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
 import love.forte.simbot.component.onebot.v11.message.segment.OneBotText
 import love.forte.simbot.message.*
+import tech.lq0.interceptor.addMemberRateLimit
 
 /**
  * 直接发送消息，不会额外创建一条回复
@@ -19,6 +20,8 @@ suspend fun OneBotMessageEvent.directlySend(message: String) =
 suspend fun OneBotMessageEvent.directlySend(messages: Messages) {
     // 防止意外响应黑名单成员
     if (authorId.toString() in botPermissionConfig.memberBlackList) return
+    // 为用户添加功能调用限流
+    addMemberRateLimit(authorId.toString())
 
     when (this) {
         is OneBotGroupMessageEvent -> {
@@ -64,6 +67,8 @@ suspend fun OneBotMessageEvent.replyAndLog(message: String) =
 suspend fun OneBotMessageEvent.replyAndLog(messages: Messages) {
     // 防止意外响应黑名单成员
     if (authorId.toString() in botPermissionConfig.memberBlackList) return
+    // 为用户添加功能调用限流
+    addMemberRateLimit(authorId.toString())
 
     when (this) {
         is OneBotGroupMessageEvent -> {
