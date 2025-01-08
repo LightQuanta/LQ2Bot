@@ -78,7 +78,12 @@ fun getTimeDiffStr(startTime: Long, endTime: Long): String {
 /**
  * 单个群最多允许订阅的主播数量
  */
-const val MAXIMUM_SUBSCRIBE_COUNT = 300
+const val GROUP_MAXIMUM_SUBSCRIBE_COUNT = 300
+
+/**
+ * 全局最多允许订阅的主播数量
+ */
+const val GLOBAL_MAXIMUM_SUBSCRIBE_COUNT = 5000
 
 @Component
 class LiveNotify @Autowired constructor(app: Application) {
@@ -281,29 +286,36 @@ class LiveNotify @Autowired constructor(app: Application) {
 
         if (operation == "subscribe") {
             val subscribed = liveUIDBind.filter { groupId.toString() in it.value }.keys
-            if (subscribed.size >= MAXIMUM_SUBSCRIBE_COUNT) {
-                directlySend("订阅的主播数量已达到允许的最大值！")
+
+            // 单个群最大订阅数量限制
+            if (subscribed.size >= GROUP_MAXIMUM_SUBSCRIBE_COUNT) {
+                directlySend("本群订阅的主播数量已达到最大值！")
                 return
             }
 
-            val newSubscribeList =
-                (uidList - subscribed).take((MAXIMUM_SUBSCRIBE_COUNT - subscribed.size).coerceAtLeast(0))
-            if (newSubscribeList.isEmpty()) {
-                directlySend("该群已经订阅上述全部主播！")
+            // 全局订阅数量限制
+            if (liveUIDBind.size >= GLOBAL_MAXIMUM_SUBSCRIBE_COUNT) {
+                directlySend("全局订阅的主播数量已达到最大值！")
                 return
             }
 
-            for (uid in newSubscribeList) {
+            val limitedSubscribeList = (uidList - subscribed)
+                .take((GROUP_MAXIMUM_SUBSCRIBE_COUNT - subscribed.size).coerceAtLeast(0))
+                .take((GLOBAL_MAXIMUM_SUBSCRIBE_COUNT - liveUIDBind.size).coerceAtLeast(0))
+
+            for (uid in limitedSubscribeList) {
                 val subscribedGroups = liveUIDBind.getOrPut(uid) { mutableSetOf() }
                 subscribedGroups += groupId.toString()
             }
             liveLogger.info(
-                "群 $groupId(${content().name}) 订阅了${newSubscribeList.size}个主播: ${
-                    newSubscribeList.joinToString { getUIDNameString(it) }
+                "群 $groupId(${content().name}) 订阅了${limitedSubscribeList.size}个主播: ${
+                    limitedSubscribeList.joinToString { getUIDNameString(it) }
                 }"
             )
             directlySend(
-                "已订阅以下${newSubscribeList.size}个主播: \n${newSubscribeList.joinToString { getUIDNameString(it) }}"
+                "已订阅以下${limitedSubscribeList.size}个主播: \n${
+                    limitedSubscribeList.joinToString { getUIDNameString(it) }
+                }"
             )
         } else {
             val subscribed = liveUIDBind.filter { groupId.toString() in it.value }.keys
