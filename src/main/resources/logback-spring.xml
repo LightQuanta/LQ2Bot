@@ -18,7 +18,7 @@
     <appender name="BAN" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>lq2bot/logs/ban/latest.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>lq2bot/logs/ban/%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>lq2bot/logs/ban/%d{yyyy-MM}.log</fileNamePattern>
         </rollingPolicy>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss} %level{10} %logger{36} - %msg%n</pattern>
@@ -28,7 +28,7 @@
     <appender name="MEME" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>lq2bot/logs/meme/latest.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>lq2bot/logs/meme/%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>lq2bot/logs/meme/%d{yyyy-MM}.log</fileNamePattern>
         </rollingPolicy>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss} %level{10} %logger{36} - %msg%n</pattern>
