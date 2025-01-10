@@ -28,7 +28,7 @@ class CatPic {
 
     @Listener
     @FunctionSwitch("CatPic")
-    @Filter("来点(猫猫?图|哈基米)")
+    @Filter("来点(猫(猫|图)|哈基米)")
     suspend fun OneBotMessageEvent.cat() = coroutineScope {
         if (pictureLinksCache.size == 0) {
             // 没有图片缓存时获取10张
