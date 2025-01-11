@@ -1,6 +1,7 @@
 package tech.lq0.utils
 
 import kotlinx.serialization.Serializable
+import tech.lq0.plugins.RoomInfo
 
 // PluginSwitch部分
 
@@ -60,11 +61,11 @@ val memeConfig by lazy {
 // LiveNotify部分
 
 /**
- * 订阅主播上次开播时间记录
- * 主播UID -> 上次开播时间戳（秒）
+ * 订阅主播直播间状态缓存
+ * 主播UID -> 上次直播间状态
  */
-val lastLiveTime by lazy {
-    readJSONConfigAs<MutableMap<String, Long>>("LiveNotify", "lastLiveTime.json") ?: mutableMapOf()
+val liveStateCache by lazy {
+    readJSONConfigAs<MutableMap<String, RoomInfo>>("LiveNotify", "liveStateCache.json") ?: mutableMapOf()
 }
 
 /**
@@ -91,6 +92,15 @@ data class LiveNotifyGroupConfig(
 
     /** 是否显示直播间链接 */
     var showLink: Boolean = true,
+
+    /** 是否显示直播分区 */
+    var showLiveArea: Boolean = true,
+
+    /** 是否在直播时通知直播标题更改 */
+    var notifyTitleChangeWhileStreaming: Boolean = true,
+
+    /** 是否在非直播时通知直播标题更改 */
+    var notifyTitleChangeWhileNotStreaming: Boolean = false,
 )
 
 /**

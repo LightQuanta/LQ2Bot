@@ -13,10 +13,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import love.forte.simbot.application.Application
+import love.forte.simbot.bot.Bot
 import love.forte.simbot.common.id.StringID.Companion.ID
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
+import love.forte.simbot.message.Messages
 import love.forte.simbot.message.OfflineImage.Companion.toOfflineImage
 import love.forte.simbot.message.buildMessages
 import love.forte.simbot.quantcat.common.annotations.Filter
@@ -51,6 +53,8 @@ data class RoomInfo(
     @SerialName("live_status") val liveStatus: Int,
     @SerialName("uname") val name: String,
     @SerialName("room_id") val roomId: Long,
+    @SerialName("area_v2_name") val areaName: String,
+    @SerialName("area_v2_parent_name") val parentAreaName: String,
     val uid: Long,
 )
 
@@ -85,6 +89,11 @@ const val GROUP_MAXIMUM_SUBSCRIBE_COUNT = 300
  */
 const val GLOBAL_MAXIMUM_SUBSCRIBE_COUNT = 5000
 
+/**
+ * 直播状态轮询间隔（秒）
+ */
+const val POLLING_DELAY = 30
+
 @Component
 class LiveNotify @Autowired constructor(app: Application) {
 
@@ -106,7 +115,7 @@ class LiveNotify @Autowired constructor(app: Application) {
 
                     val subscribedUIDs = liveUIDBind.filter { it.value.isNotEmpty() }.map { it.key.toLong() }
                     if (subscribedUIDs.isEmpty()) {
-                        delayAfterQuery(30.seconds)
+                        delayAfterQuery(POLLING_DELAY.seconds)
                         continue
                     }
 
@@ -119,148 +128,190 @@ class LiveNotify @Autowired constructor(app: Application) {
                         )
                     } catch (e: Exception) {
                         liveLogger.error("批量获取直播间信息失败: $e")
-                        delayAfterQuery(30.seconds)
+                        delayAfterQuery(POLLING_DELAY.seconds)
                         continue
                     }
                     if (responseData.code != 0) {
                         liveLogger.error("批量获取直播间信息失败: ${responseData.msg}")
-                        delayAfterQuery(30.seconds)
+                        delayAfterQuery(POLLING_DELAY.seconds)
                         continue
                     }
 
+                    // 获取所有主播的当前直播间信息
                     val roomInfo = responseData.data.map { it.value }
 
-                    var nameCacheChanged = false
+                    // 检测并通知直播间状态改变信息
+                    // 不要使用forEach，否则delay会失效
+                    for (info in roomInfo) info.informStatusChange(bot)
 
-                    // 检测并通知开播/下播
-                    for (info in roomInfo) {
-                        with(info) {
-                            val isNameSensitive = name.isSensitive()
-                            val filteredName = if (uid.toString() in sensitiveLivers) "UID: $uid" else {
-                                if (isNameSensitive) {
-                                    liveLogger.warn("检测到主播 UID: $uid($name) 名称疑似含有敏感词，已替换为UID")
-                                    sensitiveLivers += uid.toString()
-                                    saveConfig(
-                                        "LiveNotify",
-                                        "sensitiveLivers.json",
-                                        Json.encodeToString(sensitiveLivers)
-                                    )
-                                    "UID: $uid"
-                                } else name.also {
-                                    if (UIDNameCache.getOrDefault(uid.toString(), "") != name) {
-                                        nameCacheChanged = true
-                                        UIDNameCache[uid.toString()] = name
-                                    }
-                                }
-                            }
+                    saveConfig("Cache", "UID2Name.json", Json.encodeToString(UIDNameCache))
+                    saveConfig("LiveNotify", "liveStateCache.json", Json.encodeToString(liveStateCache), false)
 
-                            val groups = liveUIDBind[uid.toString()]!!.filter {
-                                it !in botPermissionConfig.groupBlackList
-                                        && it !in botPermissionConfig.groupDisabledList
-                                        && "LiveNotify" !in (groupPluginConfig[it]?.disabled ?: setOf())
-                            }
-
-                            if (liveStatus == 1 && liveTime > lastLiveTime.getOrDefault(uid.toString(), 0)) {
-                                // 开播通知
-                                liveLogger.info("检测到 UID: $uid($name) 开播，时间戳: $liveTime")
-                                lastLiveTime[uid.toString()] = liveTime
-
-                                val filteredTitle = if (uid.toString() in sensitiveLivers) "" else {
-                                    if (title.isSensitive()) {
-                                        liveLogger.warn("检测到主播 UID: $uid($name) 直播间标题($title)疑似含有敏感词，已替换为UID")
-                                        sensitiveLivers += uid.toString()
-                                        saveConfig(
-                                            "LiveNotify",
-                                            "sensitiveLivers.json",
-                                            Json.encodeToString(sensitiveLivers)
-                                        )
-                                        ""
-                                    } else title
-                                }
-
-                                val succeedGroups = mutableListOf<String>()
-                                val image = try {
-                                    URL(cover).toResource().toOfflineImage()
-                                } catch (e: Exception) {
-                                    liveLogger.error("获取封面 $cover 失败: $e")
-                                    null
-                                }
-
-                                for (group in groups) {
-                                    val groupConfig = liveGroupConfig[group] ?: LiveNotifyGroupConfig()
-                                    try {
-                                        bot.groupRelation?.group(group.ID)?.send(
-                                            buildMessages {
-                                                add(buildString {
-                                                    appendLine("${filteredName}开播了！")
-                                                    if (groupConfig.showTitle) appendLine(filteredTitle)
-                                                    if (groupConfig.showLink) appendLine("https://live.bilibili.com/$roomId")
-                                                })
-                                                if (groupConfig.showCover && image != null) add(image)
-                                            }
-                                        ) ?: throw Exception("获取群 ${group.ID} 失败")
-                                        succeedGroups += group.ID.toString()
-                                    } catch (e: Exception) {
-                                        liveLogger.error("向群 ${group.ID} 推送 UID: $uid($name) 开播通知失败: $e")
-                                    }
-                                    delay(0.5.seconds)
-                                }
-                                liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的开播通知: ${succeedGroups.joinToString()}")
-                            } else if (liveStatus != 1 && lastLiveTime.getOrDefault(uid.toString(), 0) > 1) {
-                                // 下播通知
-
-                                val succeedGroups = mutableListOf<String>()
-                                val liveStartTime = lastLiveTime[uid.toString()]!!
-                                val liveEndTime = System.currentTimeMillis() / 1000
-                                lastLiveTime -= uid.toString()
-
-                                liveLogger.info("检测到 UID: $uid($name) 下播，开播下播时间戳: $liveStartTime $liveEndTime")
-                                for (group in groups) {
-                                    val groupConfig = liveGroupConfig[group] ?: LiveNotifyGroupConfig()
-                                    if (!groupConfig.notifyStopStream) continue
-
-                                    try {
-                                        bot.groupRelation?.group(group.ID)?.send(
-                                            buildString {
-                                                append("${filteredName}下播了！")
-                                                if (groupConfig.showStreamTime) {
-                                                    append(
-                                                        "本次直播时长: ${getTimeDiffStr(liveStartTime, liveEndTime)}"
-                                                    )
-                                                }
-                                            }
-                                        ) ?: throw Exception("获取群 ${group.ID} 失败")
-                                        succeedGroups += group.ID.toString()
-                                    } catch (e: Exception) {
-                                        liveLogger.error("向群 ${group.ID} 推送 UID: $uid($name) 下播通知失败: $e")
-                                    }
-                                    delay(0.5.seconds)
-                                }
-
-                                liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 UID: $uid($name) 的下播通知: ${succeedGroups.joinToString()}")
-                            }
-                        }
-                    }
-
-                    if (nameCacheChanged) {
-                        saveConfig("Cache", "UID2Name.json", Json.encodeToString(UIDNameCache))
-                    }
-
-                    saveConfig("LiveNotify", "lastLiveTime.json", Json.encodeToString(lastLiveTime), false)
-                    delayAfterQuery(30.seconds)
+                    delayAfterQuery(POLLING_DELAY.seconds)
                 } catch (e: Exception) {
                     liveLogger.error("LiveNotify 监听器发生错误: $e")
-                    delayAfterQuery(30.seconds)
+                    delayAfterQuery(POLLING_DELAY.seconds)
                 }
             }
         }
     }
 
+    /**
+     * 根据获取到的单个主播的直播间信息，检测并通知对应的群聊
+     */
+    suspend fun RoomInfo.informStatusChange(bot: Bot) {
+        // 获取用户名，检测敏感词，缓存 UID -> 名称 对应关系
+        val isNameSensitive = name.isSensitive()
+        val filteredName = if (uid.toString() in sensitiveLivers) "UID: $uid" else {
+            if (isNameSensitive) {
+                liveLogger.warn("检测到主播 UID: $uid($name) 名称疑似含有敏感词，已替换为UID")
+                sensitiveLivers += uid.toString()
+                saveConfig(
+                    "LiveNotify",
+                    "sensitiveLivers.json",
+                    Json.encodeToString(sensitiveLivers)
+                )
+                "UID: $uid"
+            } else name.also {
+                if (UIDNameCache.getOrDefault(uid.toString(), "") != name) {
+                    UIDNameCache[uid.toString()] = name
+                }
+            }
+        }
+
+        // 获取直播间状态缓存，重置liveTime和liveStatus以便在刚订阅时立刻发送开播通知
+        val lastTimeRoomStatus = liveStateCache.getOrPut(uid.toString()) { copy(liveTime = 0, liveStatus = 0) }
+
+        // 获取经过敏感词检测后的标题
+        val filteredTitle = if (uid.toString() in sensitiveLivers) "" else {
+            if (title.isSensitive()) {
+                liveLogger.warn("检测到主播 UID: $uid($name) 直播间标题($title)疑似含有敏感词，已替换为UID")
+                sensitiveLivers += uid.toString()
+                saveConfig(
+                    "LiveNotify",
+                    "sensitiveLivers.json",
+                    Json.encodeToString(sensitiveLivers)
+                )
+                ""
+            } else title
+        }
+
+        // 标题更改通知
+        if (title != lastTimeRoomStatus.title) {
+            liveLogger.info("检测到 UID: $uid($name) 直播间标题由 ${lastTimeRoomStatus.title} 更新为 $title")
+            if (liveStatus == 1) {
+                // 开播时标题更改通知
+                informSubscribedGroups(uid.toString(), bot) {
+                    if (notifyTitleChangeWhileStreaming && filteredTitle.isNotEmpty()) {
+                        buildMessages { add("$filteredName 更改了直播间标题: ${lastTimeRoomStatus.title} -> $filteredTitle") }
+                    } else null
+                }
+            } else {
+                // 下播时标题更改通知
+                informSubscribedGroups(uid.toString(), bot) {
+                    if (notifyTitleChangeWhileNotStreaming && filteredTitle.isNotEmpty()) {
+                        buildMessages { add("$filteredName 更改了直播间标题: ${lastTimeRoomStatus.title} -> $filteredTitle") }
+                    } else null
+                }
+            }
+        }
+
+        if (liveStatus == 1 && liveTime > lastTimeRoomStatus.liveTime) {
+            // 开播通知
+            liveLogger.info("检测到 UID: $uid($name) 开播，本次获取延迟: ${liveTime - lastTimeRoomStatus.liveTime}秒，开播时间戳: $liveTime")
+
+            //  尝试获取封面（为什么有的直播间封面为空）
+            val image = try {
+                URL(cover).toResource().toOfflineImage()
+            } catch (e: Exception) {
+                liveLogger.error("获取封面(URL: $cover)失败: $e")
+                null
+            }
+
+            // 通知对应群聊
+            informSubscribedGroups(uid.toString(), bot) {
+                buildMessages {
+                    add(buildString {
+                        append(filteredName)
+                        if (showLiveArea) append(" 在$parentAreaName-${areaName}分区")
+                        appendLine("开播了！")
+
+                        if (showTitle) appendLine(filteredTitle)
+                        if (showLink) appendLine("https://live.bilibili.com/$roomId")
+                    })
+                    if (showCover && image != null) add(image)
+                }
+            }
+        } else if (liveStatus != 1 && lastTimeRoomStatus.liveTime > 1) {
+            // 下播通知
+            val liveStartTime = lastTimeRoomStatus.liveTime
+            val liveEndTime = System.currentTimeMillis() / 1000
+
+            liveLogger.info("检测到 UID: $uid($name) 下播，开播下播时间戳: $liveStartTime $liveEndTime")
+
+            informSubscribedGroups(uid.toString(), bot) {
+                if (notifyStopStream) {
+                    buildMessages {
+                        add(buildString {
+                            append("${filteredName}下播了！")
+                            if (showStreamTime) append("本次直播时长: ${getTimeDiffStr(liveStartTime, liveEndTime)}")
+                        })
+                    }
+                } else null
+            }
+        }
+
+    }
+
+
+    /**
+     * 向订阅了指定主播的所有群推送消息
+     * @param uid 主播 UID
+     * @param bot 机器人实例（用于推送通知）
+     * @param messagesBuilder 消息构造器，返回要推送的消息，若为空则不推送
+     */
+    suspend fun informSubscribedGroups(uid: String, bot: Bot, messagesBuilder: LiveNotifyGroupConfig.() -> Messages?) {
+        // 获取所有订阅了该主播（并且直播推送功能正常启用）的群
+        val groups = liveUIDBind[uid]!!.filter {
+            it !in botPermissionConfig.groupBlackList
+                    && it !in botPermissionConfig.groupDisabledList
+                    && "LiveNotify" !in (groupPluginConfig[it]?.disabled ?: setOf())
+        }
+
+        val succeedGroups = mutableListOf<String>()
+        for (group in groups) {
+            val groupConfig = liveGroupConfig[group] ?: LiveNotifyGroupConfig()
+            val messages = messagesBuilder(groupConfig)
+
+            // 消息为空时，不进行通知
+            if (messages == null) {
+                succeedGroups += group.ID.toString()
+                continue
+            }
+
+            try {
+                bot.groupRelation?.group(group.ID)?.send(messages) ?: throw Exception("获取群 ${group.ID} 失败")
+                succeedGroups += group.ID.toString()
+            } catch (e: Exception) {
+                liveLogger.error("向群 ${group.ID} 推送 ${getUIDNameString(uid)} 的直播通知失败: $e")
+            }
+            delay(0.5.seconds)
+        }
+        liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 ${getUIDNameString(uid)} 的直播通知: ${succeedGroups.joinToString()}")
+    }
+
     var queryStartTime: Long = 0
+
+    /**
+     * 标记轮询开始时间，以便计算准确的下次轮询开始时间
+     */
     fun markQueryStart() {
         queryStartTime = System.currentTimeMillis()
     }
 
+    /**
+     * 在开始轮询后准确延迟指定时长
+     */
     suspend fun delayAfterQuery(duration: kotlin.time.Duration) {
         val delay = (queryStartTime + duration.inWholeMilliseconds - System.currentTimeMillis()).milliseconds
         delay(delay)
@@ -351,23 +402,6 @@ class LiveNotify @Autowired constructor(app: Application) {
         @FilterValue("config") config: String,
         @FilterValue("operation") operation: String,
     ) {
-        if (config.lowercase().trim() !in setOf(
-                "notifystopstream",
-                "showstreamtime",
-                "showtitle",
-                "showcover",
-                "showlink",
-                "下播通知",
-                "显示直播时长",
-                "显示直播间标题",
-                "显示直播间封面",
-                "显示直播间链接",
-            )
-        ) {
-            directlySend("无法识别配置项，请输入下列选项其中之一: \n下播通知 显示直播时长 显示直播间标题 显示直播间封面 显示直播间链接")
-            return
-        }
-
         val enable = when (operation.trim().lowercase()) {
             "on", "enable", "true", "ture", "开", "启用", "开启", "1", "ok" -> true
             "off", "disable", "false", "flase", "关", "禁用", "关闭", "0", "cancel" -> false
@@ -379,11 +413,18 @@ class LiveNotify @Autowired constructor(app: Application) {
 
         val liveConfig = liveGroupConfig.getOrPut(groupId.toString()) { LiveNotifyGroupConfig() }
         when (config.lowercase().trim()) {
-            "notifystopstream", "下播通知" -> liveConfig.notifyStopStream = enable
-            "showstreamtime", "显示直播时长" -> liveConfig.showStreamTime = enable
-            "showtitle", "显示直播间标题" -> liveConfig.showTitle = enable
-            "showcover", "显示直播间封面" -> liveConfig.showCover = enable
-            "showlink", "显示直播间链接" -> liveConfig.showLink = enable
+            "下播通知" -> liveConfig.notifyStopStream = enable
+            "显示直播时长" -> liveConfig.showStreamTime = enable
+            "显示直播间标题" -> liveConfig.showTitle = enable
+            "显示直播间封面" -> liveConfig.showCover = enable
+            "显示直播间链接" -> liveConfig.showLink = enable
+            "显示直播分区" -> liveConfig.showLiveArea = enable
+            "直播时通知直播间标题更改" -> liveConfig.notifyTitleChangeWhileStreaming = enable
+            "非直播时通知直播间标题更改" -> liveConfig.notifyTitleChangeWhileNotStreaming = enable
+            else -> {
+                directlySend("无法识别配置项，请输入下列选项其中之一: \n下播通知 显示直播时长 显示直播间标题 显示直播间封面 显示直播间链接 显示直播分区 直播时通知直播间标题更改 非直播时通知直播间标题更改")
+                return
+            }
         }
 
         liveLogger.info("群 $groupId(${content().name}) 的直播通知配置项 $config 已被 $authorId(${this.author().name}) 设置为 $enable")
@@ -406,6 +447,9 @@ class LiveNotify @Autowired constructor(app: Application) {
                 显示直播间标题: ${if (liveConfig.showTitle) "开" else "关"}
                 显示直播间封面: ${if (liveConfig.showCover) "开" else "关"}
                 显示直播间链接: ${if (liveConfig.showLink) "开" else "关"}
+                显示直播分区: ${if (liveConfig.showLiveArea) "开" else "关"}
+                直播时通知直播间标题更改: ${if (liveConfig.notifyTitleChangeWhileStreaming) "开" else "关"}
+                非直播时通知直播间标题更改: ${if (liveConfig.notifyTitleChangeWhileNotStreaming) "开" else "关"}
             """.trimIndent()
         )
     }
