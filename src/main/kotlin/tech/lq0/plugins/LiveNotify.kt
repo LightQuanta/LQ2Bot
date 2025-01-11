@@ -144,6 +144,11 @@ class LiveNotify @Autowired constructor(app: Application) {
                     // 不要使用forEach，否则delay会失效
                     for (info in roomInfo) info.informStatusChange(bot)
 
+                    // 更新开播状态更新开播状态更新开播状态！！！
+                    roomInfo.forEach {
+                        liveStateCache[it.uid.toString()] = it
+                    }
+
                     saveConfig("Cache", "UID2Name.json", Json.encodeToString(UIDNameCache))
                     saveConfig("LiveNotify", "liveStateCache.json", Json.encodeToString(liveStateCache), false)
 
