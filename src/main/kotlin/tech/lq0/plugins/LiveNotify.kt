@@ -124,7 +124,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                             client.post("https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids") {
                                 contentType(ContentType.Application.Json)
                                 setBody("""{"uids":[${subscribedUIDs.joinToString(",")}]}""")
-                            }.readBytes().decodeToString()
+                            }.bodyAsText()
                         )
                     } catch (e: Exception) {
                         liveLogger.error("批量获取直播间信息失败: $e")

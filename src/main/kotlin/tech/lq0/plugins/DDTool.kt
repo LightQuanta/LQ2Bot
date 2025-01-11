@@ -131,9 +131,7 @@ class DDTool {
         try {
             // 直播间信息
             var response = Json.parseToJsonElement(
-                client.get("https://api.live.bilibili.com/room/v1/Room/get_info?room_id=$roomID")
-                    .readBytes()
-                    .decodeToString()
+                client.get("https://api.live.bilibili.com/room/v1/Room/get_info?room_id=$roomID").bodyAsText()
             )
             if (response.jsonObject["code"]!!.jsonPrimitive.int != 0) throw Exception(Json.encodeToString(response))
 
@@ -146,7 +144,7 @@ class DDTool {
             response = Json.parseToJsonElement(
                 client.get("https://api.bilibili.com/x/web-interface/card?mid=$uid") {
                     userAgent("114514")
-                }.readBytes().decodeToString()
+                }.bodyAsText()
             )
             if (response.jsonObject["code"]!!.jsonPrimitive.int != 0) throw Exception(Json.encodeToString(response))
 
@@ -173,9 +171,7 @@ class DDTool {
             // UID获取直播间
             // 用户信息
             val response = Json.parseToJsonElement(
-                client.get("https://api.live.bilibili.com/live_user/v1/Master/info?uid=$uid")
-                    .readBytes()
-                    .decodeToString()
+                client.get("https://api.live.bilibili.com/live_user/v1/Master/info?uid=$uid").bodyAsText()
             )
             if (response.jsonObject["code"]!!.jsonPrimitive.int != 0) throw Exception(Json.encodeToString(response))
 
@@ -228,9 +224,7 @@ class DDTool {
 
         val response = Json.parseToJsonElement(
             try {
-                client.get("https://cfapi.vtbs.moe/v1/vtbs")
-                    .readBytes()
-                    .decodeToString()
+                client.get("https://cfapi.vtbs.moe/v1/vtbs").bodyAsText()
             } catch (e: Exception) {
                 chatLogger.error("获取管人列表失败: $e")
                 updatingVTBList = false
@@ -252,9 +246,7 @@ class DDTool {
         updatingLivingList = true
         val response = Json.parseToJsonElement(
             try {
-                client.get("https://cfapi.vtbs.moe/v1/living")
-                    .readBytes()
-                    .decodeToString()
+                client.get("https://cfapi.vtbs.moe/v1/living").bodyAsText()
             } catch (e: Exception) {
                 chatLogger.error("获取直播列表失败: $e")
                 updatingLivingList = false

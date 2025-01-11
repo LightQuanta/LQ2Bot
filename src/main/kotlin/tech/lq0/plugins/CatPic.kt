@@ -47,7 +47,7 @@ class CatPic {
     suspend fun updatePictureLinksCache(): Boolean {
         try {
             val resp = Json.parseToJsonElement(
-                client.get("https://api.thecatapi.com/v1/images/search?limit=10").readBytes().decodeToString()
+                client.get("https://api.thecatapi.com/v1/images/search?limit=10").bodyAsText()
             )
             val count = resp.jsonArray.size
             pictureLinksCache.addAll(resp.jsonArray.map { it.jsonObject["url"]!!.jsonPrimitive.content })
