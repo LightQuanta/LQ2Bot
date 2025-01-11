@@ -204,19 +204,23 @@ class LiveNotify @Autowired constructor(app: Application) {
         // 标题更改通知
         if (title != lastTimeRoomStatus.title) {
             liveLogger.info("检测到 UID: $uid($name) 直播间标题由 ${lastTimeRoomStatus.title} 更新为 $title")
-            if (liveStatus == 1 && lastTimeRoomStatus.liveStatus == liveStatus) {
-                // 开播时标题更改通知
-                informSubscribedGroups(uid.toString(), bot) {
-                    if (notifyTitleChangeWhileStreaming && filteredTitle.isNotEmpty()) {
-                        buildMessages { add("$filteredName 更改了直播间标题: ${lastTimeRoomStatus.title} -> $filteredTitle") }
-                    } else null
-                }
-            } else {
-                // 下播时标题更改通知
-                informSubscribedGroups(uid.toString(), bot) {
-                    if (notifyTitleChangeWhileNotStreaming && filteredTitle.isNotEmpty()) {
-                        buildMessages { add("$filteredName 更改了直播间标题: ${lastTimeRoomStatus.title} -> $filteredTitle") }
-                    } else null
+
+            // 不推送敏感主播的直播间标题更改
+            if (uid.toString() !in sensitiveLivers) {
+                if (liveStatus == 1 && lastTimeRoomStatus.liveStatus == liveStatus) {
+                    // 开播时标题更改通知
+                    informSubscribedGroups(uid.toString(), bot) {
+                        if (notifyTitleChangeWhileStreaming && filteredTitle.isNotEmpty()) {
+                            buildMessages { add("$filteredName 更改了直播间标题: ${lastTimeRoomStatus.title} -> $filteredTitle") }
+                        } else null
+                    }
+                } else {
+                    // 下播时标题更改通知
+                    informSubscribedGroups(uid.toString(), bot) {
+                        if (notifyTitleChangeWhileNotStreaming && filteredTitle.isNotEmpty()) {
+                            buildMessages { add("$filteredName 更改了直播间标题: ${lastTimeRoomStatus.title} -> $filteredTitle") }
+                        } else null
+                    }
                 }
             }
         }
