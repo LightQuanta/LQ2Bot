@@ -402,7 +402,7 @@ class LiveNotify @Autowired constructor(app: Application) {
     @RequireAdmin
     @FunctionSwitch("LiveNotify")
     @ChinesePunctuationReplace
-    @Filter("!liveconfig {{config,\\w+}} {{operation,.+}}")
+    @Filter("!liveconfig {{config,\\S+}} {{operation,\\S+}}")
     suspend fun OneBotNormalGroupMessageEvent.configLive(
         @FilterValue("config") config: String,
         @FilterValue("operation") operation: String,
