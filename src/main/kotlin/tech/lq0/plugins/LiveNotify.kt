@@ -204,7 +204,7 @@ class LiveNotify @Autowired constructor(app: Application) {
         // 标题更改通知
         if (title != lastTimeRoomStatus.title) {
             liveLogger.info("检测到 UID: $uid($name) 直播间标题由 ${lastTimeRoomStatus.title} 更新为 $title")
-            if (liveStatus == 1) {
+            if (liveStatus == 1 && lastTimeRoomStatus.liveStatus == liveStatus) {
                 // 开播时标题更改通知
                 informSubscribedGroups(uid.toString(), bot) {
                     if (notifyTitleChangeWhileStreaming && filteredTitle.isNotEmpty()) {
