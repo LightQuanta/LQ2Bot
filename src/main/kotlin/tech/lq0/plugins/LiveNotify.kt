@@ -142,11 +142,11 @@ class LiveNotify @Autowired constructor(app: Application) {
 
                     // 检测并通知直播间状态改变信息
                     // 不要使用forEach，否则delay会失效
-                    for (info in roomInfo) info.informStatusChange(bot)
+                    for (info in roomInfo) {
+                        info.informStatusChange(bot)
 
-                    // 更新开播状态更新开播状态更新开播状态！！！
-                    roomInfo.forEach {
-                        liveStateCache[it.uid.toString()] = it
+                        // 记得更新开播状态更新开播状态更新开播状态！！！
+                        liveStateCache[info.uid.toString()] = info
                     }
 
                     saveConfig("Cache", "UID2Name.json", Json.encodeToString(UIDNameCache))
@@ -223,7 +223,7 @@ class LiveNotify @Autowired constructor(app: Application) {
 
         if (liveStatus == 1 && liveTime > lastTimeRoomStatus.liveTime) {
             // 开播通知
-            liveLogger.info("检测到 UID: $uid($name) 开播，本次获取延迟: ${liveTime - lastTimeRoomStatus.liveTime}秒，开播时间戳: $liveTime")
+            liveLogger.info("检测到 UID: $uid($name) 开播，本次获取延迟: ${System.currentTimeMillis() / 1000 - liveTime}秒，开播时间戳: $liveTime")
 
             //  尝试获取封面（为什么有的直播间封面为空）
             val image = try {
