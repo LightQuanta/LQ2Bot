@@ -221,7 +221,7 @@ class Meme {
 
             saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
             logUpdate()
-            directlySend("已更新$keyword")
+            directlySend("已更新${meme.name}(id: ${meme.id})")
         } else {
             notifyAdmin()
         }
@@ -242,7 +242,7 @@ class Meme {
             memeConfig.lastUpdateTime = Instant.now().epochSecond
             saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
             logUpdate()
-            directlySend("已更新$keyword")
+            directlySend("已更新${meme.name}(id: ${meme.id})")
         } else {
             notifyAdmin()
         }
@@ -273,7 +273,7 @@ class Meme {
             }
         } ?: return
         if (replies.isNotEmpty() && replies.none { it in meme.replyContent }) {
-            directlySend("在 $keyword 中没有找到该回复！")
+            directlySend("在 ${meme.name} 中没有找到该回复！")
             return
         }
 
@@ -282,10 +282,10 @@ class Meme {
                 val removed = meme.replyContent intersect replies
                 meme.replyContent -= replies
 
-                directlySend("已移除$keyword(id: ${meme.id})中的以下${removed.size}个回复:\n${removed.joinToString()}")
+                directlySend("已移除${meme.name}(id: ${meme.id})中的以下${removed.size}个回复:\n${removed.joinToString()}")
             } else {
                 memeConfig.memes -= meme
-                directlySend("已移除$keyword(id: ${meme.id})")
+                directlySend("已移除${meme.name}(id: ${meme.id})")
             }
 
             memeConfig.lastUpdateTime = Instant.now().epochSecond
@@ -309,14 +309,14 @@ class Meme {
         if (operation == "un") {
             if (groupId.toString() in meme.blackListGroups) {
                 meme.blackListGroups -= groupId.toString()
-                directlySend("已在该群重新启用 $keyword(id: ${meme.id})")
+                directlySend("已在该群重新启用 ${meme.name}(id: ${meme.id})")
             } else {
-                directlySend("该群没有禁用 $keyword(id: ${meme.id}) ！")
+                directlySend("该群没有禁用 ${meme.name}(id: ${meme.id}) ！")
                 return
             }
         } else {
             meme.blackListGroups += groupId.toString()
-            directlySend("已在该群禁用 $keyword(id: ${meme.id})")
+            directlySend("已在该群禁用 ${meme.name}(id: ${meme.id})")
         }
 
         memeConfig.lastUpdateTime = Instant.now().epochSecond
