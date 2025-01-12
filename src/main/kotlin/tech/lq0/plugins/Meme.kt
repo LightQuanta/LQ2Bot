@@ -61,7 +61,7 @@ class Meme {
 
         val groupID = if (this is OneBotGroupMessageEvent) groupId.toString() else null
         memeConfig.memes.filter { it.availableTo(groupID) }.firstOrNull {
-            listOf(it.name, *it.alias?.toTypedArray() ?: emptyArray())
+            listOf(it.name, *it.alias.toTypedArray())
                 .any { keyword ->
                     when (it.detectType) {
                         DetectType.EQUAL -> text.lowercase() == keyword.lowercase()
@@ -186,7 +186,7 @@ class Meme {
             val groupID = if (this is OneBotNormalGroupMessageEvent) groupId.toString() else null
             val meme = if (isGroupMeme) {
                 findMemeInstance(keyword, false) {
-                    !whiteListGroups.isNullOrEmpty() && groupID in whiteListGroups
+                    whiteListGroups.isNotEmpty() && groupID in whiteListGroups
                 } ?: SingleMeme(
                     name = keyword,
                     detectType = detectType,
@@ -218,8 +218,7 @@ class Meme {
         val aliases = alias.split("|").filter { it.isNotEmpty() }.map { it.trim().lowercase() }
         if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
             val meme = findMemeInstance(keyword) ?: return
-            if (meme.alias == null) meme.alias = mutableSetOf()
-            meme.alias!!.addAll(aliases)
+            meme.alias.addAll(aliases)
 
             memeConfig.lastUpdateTime = Instant.now().epochSecond
             saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
@@ -249,7 +248,7 @@ class Meme {
 
         val meme = findMemeInstance(keyword) {
             if (isGroup) {
-                !whiteListGroups.isNullOrEmpty() && groupID in whiteListGroups
+                whiteListGroups.isNotEmpty() && groupID in whiteListGroups
             } else {
                 true
             }
@@ -289,16 +288,15 @@ class Meme {
         val meme = findMemeInstance(keyword) ?: return
 
         if (operation == "un") {
-            if (meme.blackListGroups != null && groupId.toString() in meme.blackListGroups!!) {
-                meme.blackListGroups!! -= groupId.toString()
+            if (groupId.toString() in meme.blackListGroups) {
+                meme.blackListGroups -= groupId.toString()
                 directlySend("已在该群重新启用 $keyword")
             } else {
                 directlySend("该群没有禁用 $keyword ！")
                 return
             }
         } else {
-            if (meme.blackListGroups == null) meme.blackListGroups = mutableSetOf()
-            meme.blackListGroups!! += groupId.toString()
+            meme.blackListGroups += groupId.toString()
             directlySend("已在该群禁用 $keyword")
         }
 
@@ -359,7 +357,7 @@ class Meme {
             }
         } else {
             val memes = memeConfig.memes.filter {
-                setOf(it.name, *(it.alias?.toTypedArray() ?: emptyArray()))
+                setOf(it.name, *it.alias.toTypedArray())
                     .map { word -> word.lowercase() }
                     .any { word -> keyword.lowercase() in word }
             }
@@ -411,7 +409,7 @@ class Meme {
         memeConfig.memes.filter(filter).firstOrNull {
             keyword.trim().lowercase() in setOf(
                 it.name,
-                *(it.alias?.toTypedArray() ?: emptyArray())
+                *it.alias.toTypedArray()
             ).map { word -> word.lowercase() }
         } ?: run {
             if (sendFeedback) {

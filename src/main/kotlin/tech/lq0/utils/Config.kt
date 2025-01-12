@@ -2,6 +2,7 @@ package tech.lq0.utils
 
 import kotlinx.serialization.Serializable
 import tech.lq0.plugins.RoomInfo
+import java.util.*
 
 // PluginSwitch部分
 
@@ -40,17 +41,18 @@ enum class DetectType {
 data class SingleMeme(
     val detectType: DetectType = DetectType.EQUAL,
     val name: String,
-    var alias: MutableSet<String>? = mutableSetOf(),
+    val id: String = UUID.randomUUID().toString(),
+    var alias: MutableSet<String> = mutableSetOf(),
     val replyContent: LinkedHashSet<String> = linkedSetOf(),
-    val whiteListGroups: MutableSet<String>? = mutableSetOf(),
-    var blackListGroups: MutableSet<String>? = mutableSetOf(),
+    val whiteListGroups: MutableSet<String> = mutableSetOf(),
+    var blackListGroups: MutableSet<String> = mutableSetOf(),
 ) {
     /**
      * 判断该Meme在指定群聊是否可用
      */
     fun availableTo(group: String?): Boolean {
-        if (!whiteListGroups.isNullOrEmpty() && group !in whiteListGroups) return false
-        if (!blackListGroups.isNullOrEmpty() && group in blackListGroups!!) return false
+        if (whiteListGroups.isNotEmpty() && group !in whiteListGroups) return false
+        if (blackListGroups.isNotEmpty() && group in blackListGroups) return false
         return true
     }
 }
