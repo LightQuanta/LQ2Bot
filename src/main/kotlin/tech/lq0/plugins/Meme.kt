@@ -20,6 +20,7 @@ import tech.lq0.interceptor.FunctionSwitch
 import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.utils.*
 import java.time.Instant
+import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -184,17 +185,35 @@ class Meme {
 
         if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
             val groupID = if (this is OneBotNormalGroupMessageEvent) groupId.toString() else null
+
+            val isUUID = try {
+                UUID.fromString(keyword)
+                true
+            } catch (_: Exception) {
+                false
+            }
+
             val meme = if (isGroupMeme) {
                 findMemeInstance(keyword, false) {
                     whiteListGroups.isNotEmpty() && groupID in whiteListGroups
-                } ?: SingleMeme(
-                    name = keyword,
-                    detectType = detectType,
-                    whiteListGroups = mutableSetOf(groupID!!)
-                ).also { memeConfig.memes += it }
+                } ?: if (isUUID) {
+                    directlySend("该Meme不存在！")
+                    return
+                } else {
+                    SingleMeme(
+                        name = keyword,
+                        detectType = detectType,
+                        whiteListGroups = mutableSetOf(groupID!!)
+                    ).also { memeConfig.memes += it }
+                }
             } else {
                 findMemeInstance(keyword, false)
-                    ?: SingleMeme(name = keyword, detectType = detectType).also { memeConfig.memes += it }
+                    ?: if (isUUID) {
+                        directlySend("该Meme不存在！")
+                        return
+                    } else {
+                        SingleMeme(name = keyword, detectType = detectType).also { memeConfig.memes += it }
+                    }
             }
 
             meme.replyContent.addAll(replies)
@@ -263,10 +282,10 @@ class Meme {
                 val removed = meme.replyContent intersect replies
                 meme.replyContent -= replies
 
-                directlySend("已移除${keyword}中的以下${removed.size}个回复:\n${removed.joinToString()}")
+                directlySend("已移除$keyword(id: ${meme.id})中的以下${removed.size}个回复:\n${removed.joinToString()}")
             } else {
                 memeConfig.memes -= meme
-                directlySend("已移除$keyword")
+                directlySend("已移除$keyword(id: ${meme.id})")
             }
 
             memeConfig.lastUpdateTime = Instant.now().epochSecond
@@ -290,14 +309,14 @@ class Meme {
         if (operation == "un") {
             if (groupId.toString() in meme.blackListGroups) {
                 meme.blackListGroups -= groupId.toString()
-                directlySend("已在该群重新启用 $keyword")
+                directlySend("已在该群重新启用 $keyword(id: ${meme.id})")
             } else {
-                directlySend("该群没有禁用 $keyword ！")
+                directlySend("该群没有禁用 $keyword(id: ${meme.id}) ！")
                 return
             }
         } else {
             meme.blackListGroups += groupId.toString()
-            directlySend("已在该群禁用 $keyword")
+            directlySend("已在该群禁用 $keyword(id: ${meme.id})")
         }
 
         memeConfig.lastUpdateTime = Instant.now().epochSecond
@@ -347,25 +366,33 @@ class Meme {
         val keyword = query.substringBefore("#").trim().lowercase()
         val content = query.substringAfter("#", "").trim()
 
+        val memes = findMemeInstances(keyword, content.isEmpty()) {
+            if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
+                // 对管理员始终返回所有Meme
+                true
+            } else if (this@findMeme is OneBotNormalGroupMessageEvent) {
+                // 群里使用仅返回公用或该群为白名单成员的Meme
+                whiteListGroups.isEmpty() || groupId.toString() in whiteListGroups
+            } else {
+                // 普通用户私聊使用返回所有无白名单群的Meme
+                whiteListGroups.isEmpty()
+            }
+        }
+
+        if (memes.isEmpty()) {
+            directlySend("未发现该关键词！")
+            return
+        }
+
         if (content.isNotEmpty()) {
-            val meme = findMemeInstance(keyword) ?: return
-            val replies = meme.replyContent.filter { content in it }
+            val replies = memes.first().replyContent.filter { content in it }
             if (replies.isNotEmpty()) {
                 directlySend("查找到的回复: ${replies.take(8).joinToString()}")
             } else {
                 directlySend("未发现该回复！")
             }
         } else {
-            val memes = memeConfig.memes.filter {
-                setOf(it.name, *it.alias.toTypedArray())
-                    .map { word -> word.lowercase() }
-                    .any { word -> keyword.lowercase() in word }
-            }
-            if (memes.isNotEmpty()) {
-                directlySend("查找到的关键词: ${memes.take(8).joinToString { it.name }}")
-            } else {
-                directlySend("未发现该关键词！")
-            }
+            directlySend("查找到的关键词: ${memes.take(8).joinToString { "${it.name} (id: ${it.id})" }}")
         }
     }
 
@@ -399,22 +426,42 @@ class Meme {
     }
 
     /**
-     * 根据关键词查找有无对应Meme实例，未找到会回复相应提示
+     * 根据关键词查找有无对应Meme实例，未找到会默认回复相应提示
      */
     suspend fun OneBotMessageEvent.findMemeInstance(
         keyword: String,
         sendFeedback: Boolean = true,
         filter: SingleMeme.() -> Boolean = { true }
-    ): SingleMeme? =
-        memeConfig.memes.filter(filter).firstOrNull {
-            keyword.trim().lowercase() in setOf(
-                it.name,
-                *it.alias.toTypedArray()
-            ).map { word -> word.lowercase() }
-        } ?: run {
-            if (sendFeedback) {
-                directlySend("未发现该关键词！")
+    ): SingleMeme? = findMemeInstances(keyword = keyword, filter = filter).firstOrNull() ?: run {
+        if (sendFeedback) directlySend("未发现该关键词！")
+        return null
+    }
+
+    /**
+     * 根据关键词查找所有Meme实例
+     */
+    suspend fun OneBotMessageEvent.findMemeInstances(
+        keyword: String,
+        ambiguousMatch: Boolean = false,
+        filter: SingleMeme.() -> Boolean = { true }
+    ): List<SingleMeme> =
+        memeConfig.memes.filter(filter).filter {
+            try {
+                UUID.fromString(keyword)
+                return@filter keyword == it.id
+            } catch (_: Exception) {
             }
-            return null
+
+            if (ambiguousMatch) {
+                setOf(
+                    it.name,
+                    *it.alias.toTypedArray()
+                ).map { word -> word.lowercase() }.any { word -> keyword.trim().lowercase() in word }
+            } else {
+                keyword.trim().lowercase() in setOf(
+                    it.name,
+                    *it.alias.toTypedArray()
+                ).map { word -> word.lowercase() }
+            }
         }
 }
