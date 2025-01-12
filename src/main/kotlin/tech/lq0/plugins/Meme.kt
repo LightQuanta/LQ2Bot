@@ -16,7 +16,6 @@ import love.forte.simbot.quantcat.common.annotations.FilterValue
 import love.forte.simbot.quantcat.common.annotations.Listener
 import love.forte.simbot.resource.toResource
 import org.springframework.stereotype.Component
-import tech.lq0.interceptor.ChinesePunctuationReplace
 import tech.lq0.interceptor.FunctionSwitch
 import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.utils.*
@@ -35,7 +34,6 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @ChinesePunctuationReplace
     suspend fun OneBotMessageEvent.meme() {
         val text = this.messageContent.plainText?.trim()?.lowercase()
         if (text.isNullOrEmpty()) return
@@ -136,7 +134,6 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @ChinesePunctuationReplace
     @Filter("addmeme {{keyword,.+}}#{{reply,.+}}")
     suspend fun OneBotMessageEvent.addMeme(
         @FilterValue("keyword") keyword: String,
@@ -163,7 +160,6 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @ChinesePunctuationReplace
     @Filter("addalias {{keyword,.+?}}#{{alias,.+}}")
     suspend fun OneBotMessageEvent.addAlias(
         @FilterValue("keyword") keyword: String,
@@ -186,7 +182,6 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @ChinesePunctuationReplace
     @Filter("delmeme {{operation,.+}}")
     suspend fun OneBotMessageEvent.delMeme(@FilterValue("operation") operation: String) {
         val keyword = operation.substringBefore("#").trim()
@@ -224,7 +219,6 @@ class Meme {
     @Listener
     @RequireAdmin
     @FunctionSwitch("Meme")
-    @ChinesePunctuationReplace
     @Filter("{{operation,(un)?}}banmeme {{keyword,.+}}")
     suspend fun OneBotNormalGroupMessageEvent.banMeme(
         @FilterValue("operation") operation: String,
@@ -255,7 +249,6 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @ChinesePunctuationReplace
     @Filter("{{action,getmeme(json)?}} {{keyword,.+}}")
     suspend fun OneBotMessageEvent.getMeme(
         @FilterValue("action") action: String,
@@ -271,7 +264,6 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @ChinesePunctuationReplace
     @Filter("setrep {{keyword,.+?}}#{{content,.+}}")
     suspend fun OneBotFriendMessageEvent.setReply(
         @FilterValue("keyword") keyword: String,
@@ -289,7 +281,6 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @ChinesePunctuationReplace
     @Filter("findmeme {{query,.+}}")
     suspend fun OneBotMessageEvent.findMeme(@FilterValue("query") query: String) {
         if (query.isEmpty()) return
