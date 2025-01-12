@@ -44,7 +44,17 @@ data class SingleMeme(
     val replyContent: LinkedHashSet<String> = linkedSetOf(),
     val whiteListGroups: MutableSet<String>? = mutableSetOf(),
     var blackListGroups: MutableSet<String>? = mutableSetOf(),
-)
+) {
+    /**
+     * 判断该Meme在指定群聊是否可用
+     */
+    fun availableTo(group: String?): Boolean {
+        if (group.isNullOrEmpty()) return true
+        if (!whiteListGroups.isNullOrEmpty() && group !in whiteListGroups) return false
+        if (!blackListGroups.isNullOrEmpty() && group in blackListGroups!!) return false
+        return true
+    }
+}
 
 @Serializable
 data class Meme(

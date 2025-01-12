@@ -20,10 +20,31 @@ import tech.lq0.interceptor.FunctionSwitch
 import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.utils.*
 import java.time.Instant
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.io.path.Path
 
 @Component
 class Meme {
+
+    /**
+     * 匹配时间超过100ms视为超时的正则匹配，避免灾难性回溯
+     */
+    fun testRegexWithTimeout(pattern: String, input: String): Boolean {
+        val executor = Executors.newSingleThreadExecutor()
+        val future = executor.submit<Boolean> {
+            input.matches(Regex(pattern, RegexOption.IGNORE_CASE))
+        }
+        return try {
+            future.get(100, TimeUnit.MILLISECONDS)
+        } catch (e: TimeoutException) {
+            false
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
 
     /**
      * setrep预设回复数据缓存
@@ -38,24 +59,18 @@ class Meme {
         val text = this.messageContent.plainText?.trim()
         if (text.isNullOrEmpty()) return
 
-        memeConfig.memes.firstOrNull {
+        val groupID = if (this is OneBotGroupMessageEvent) groupId.toString() else null
+        memeConfig.memes.filter { it.availableTo(groupID) }.firstOrNull {
             listOf(it.name, *it.alias?.toTypedArray() ?: emptyArray())
                 .any { keyword ->
                     when (it.detectType) {
                         DetectType.EQUAL -> text.lowercase() == keyword.lowercase()
                         DetectType.STARTS_WITH -> text.lowercase().startsWith(keyword.lowercase())
                         DetectType.REGEX_MATCH,
-                        DetectType.REGEX_REPLACE -> text.matches(Regex(keyword, RegexOption.IGNORE_CASE))
+                        DetectType.REGEX_REPLACE -> testRegexWithTimeout(keyword, text)
                     }
                 }
         }?.let {
-            // 群黑/白名单处理
-            if (this is OneBotGroupMessageEvent) {
-                if (!it.whiteListGroups.isNullOrEmpty() && groupId.toString() !in it.whiteListGroups
-                    || groupId.toString() in (it.blackListGroups ?: setOf())
-                ) return
-            }
-
             // 预设回复处理
             if (authorId.toString() in presetReplyInfo) {
                 val (keyword, reply) = presetReplyInfo[authorId.toString()]!!
@@ -134,19 +149,36 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @Filter("addmeme {{keyword,.+}}#{{reply,.+}}")
+    @Filter("{{operation,addmeme|addregexmeme|addstartswithmeme|addregexreplacememe}} {{keyword,.+}}#{{reply,.+}}")
     suspend fun OneBotMessageEvent.addMeme(
+        @FilterValue("operation") operation: String,
         @FilterValue("keyword") keyword: String,
         @FilterValue("reply") reply: String,
     ) {
         // TODO 图片添加支持
         val replies = reply.split("|").filter { it.isNotEmpty() }.map { it.trim() }
-        if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
-            val meme = findMemeInstance(keyword, false) ?: run {
-                val tempMeme = SingleMeme(name = keyword)
-                memeConfig.memes.add(tempMeme)
-                tempMeme
+
+        val detectType = when (operation) {
+            "addmeme" -> DetectType.EQUAL
+            "addregexmeme" -> DetectType.REGEX_MATCH
+            "addstartswithmeme" -> DetectType.STARTS_WITH
+            "addregexreplacememe" -> DetectType.REGEX_REPLACE
+            else -> DetectType.EQUAL
+        }
+
+        if (detectType == DetectType.REGEX_REPLACE || detectType == DetectType.REGEX_MATCH) {
+            try {
+                Regex(keyword)
+            } catch (e: Exception) {
+                directlySend("正则表达式输入格式错误！")
+                return
             }
+        }
+
+        if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
+            val meme = findMemeInstance(keyword, false)
+                ?: SingleMeme(name = keyword, detectType = detectType).also { memeConfig.memes += it }
+
             meme.replyContent.addAll(replies)
             memeConfig.lastUpdateTime = Instant.now().epochSecond
 
