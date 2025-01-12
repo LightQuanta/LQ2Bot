@@ -337,7 +337,16 @@ class Meme {
         if (action == "getmeme") {
             directlySend(meme.replyContent.joinToString("|"))
         } else {
-            directlySend(prettyJsonFormatter.encodeToString(meme))
+            val isAdmin = authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin
+            directlySend(
+                prettyJsonFormatter.encodeToString(
+                    if (isAdmin) {
+                        meme
+                    } else {
+                        meme.copy(whiteListGroups = mutableSetOf(), blackListGroups = mutableSetOf())
+                    }
+                )
+            )
         }
     }
 
