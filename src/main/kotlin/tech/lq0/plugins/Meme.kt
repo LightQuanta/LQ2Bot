@@ -35,15 +35,15 @@ class Meme {
     @Listener
     @FunctionSwitch("Meme")
     suspend fun OneBotMessageEvent.meme() {
-        val text = this.messageContent.plainText?.trim()?.lowercase()
+        val text = this.messageContent.plainText?.trim()
         if (text.isNullOrEmpty()) return
 
         memeConfig.memes.firstOrNull {
             listOf(it.name, *it.alias?.toTypedArray() ?: emptyArray())
                 .any { keyword ->
                     when (it.detectType) {
-                        DetectType.EQUAL -> text == keyword.lowercase()
-                        DetectType.STARTS_WITH -> text.startsWith(keyword.lowercase())
+                        DetectType.EQUAL -> text.lowercase() == keyword.lowercase()
+                        DetectType.STARTS_WITH -> text.lowercase().startsWith(keyword.lowercase())
                         DetectType.REGEX_MATCH,
                         DetectType.REGEX_REPLACE -> text.matches(Regex(keyword, RegexOption.IGNORE_CASE))
                     }
