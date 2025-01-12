@@ -71,6 +71,9 @@ class Meme {
                     }
                 }
         }?.let {
+            // 避免处理空回复内容Meme
+            if (it.replyContent.isEmpty()) return
+
             // 预设回复处理
             if (authorId.toString() in presetReplyInfo) {
                 val (keyword, reply) = presetReplyInfo[authorId.toString()]!!
@@ -149,7 +152,7 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @Filter("{{operation,addmeme|addregexmeme|addstartswithmeme|addregexreplacememe}} {{keyword,.+}}#{{reply,.+}}")
+    @Filter("{{operation,add(group)?(meme|regexmeme|startswithmeme|regexreplacememe)}} {{keyword,.+}}#{{reply,.+}}")
     suspend fun OneBotMessageEvent.addMeme(
         @FilterValue("operation") operation: String,
         @FilterValue("keyword") keyword: String,
@@ -158,11 +161,15 @@ class Meme {
         // TODO 图片添加支持
         val replies = reply.split("|").filter { it.isNotEmpty() }.map { it.trim() }
 
-        val detectType = when (operation) {
-            "addmeme" -> DetectType.EQUAL
-            "addregexmeme" -> DetectType.REGEX_MATCH
-            "addstartswithmeme" -> DetectType.STARTS_WITH
-            "addregexreplacememe" -> DetectType.REGEX_REPLACE
+        val isGroupMeme = operation.startsWith("addgroup")
+        if (isGroupMeme && this !is OneBotNormalGroupMessageEvent) return
+
+        val type = if (isGroupMeme) operation.substringAfter("addgroup") else operation.substringAfter("add")
+        val detectType = when (type) {
+            "meme" -> DetectType.EQUAL
+            "regexmeme" -> DetectType.REGEX_MATCH
+            "startswithmeme" -> DetectType.STARTS_WITH
+            "regexreplacememe" -> DetectType.REGEX_REPLACE
             else -> DetectType.EQUAL
         }
 
@@ -176,8 +183,19 @@ class Meme {
         }
 
         if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
-            val meme = findMemeInstance(keyword, false)
-                ?: SingleMeme(name = keyword, detectType = detectType).also { memeConfig.memes += it }
+            val groupID = if (this is OneBotNormalGroupMessageEvent) groupId.toString() else null
+            val meme = if (isGroupMeme) {
+                findMemeInstance(keyword, false) {
+                    !whiteListGroups.isNullOrEmpty() && groupID in whiteListGroups
+                } ?: SingleMeme(
+                    name = keyword,
+                    detectType = detectType,
+                    whiteListGroups = mutableSetOf(groupID!!)
+                ).also { memeConfig.memes += it }
+            } else {
+                findMemeInstance(keyword, false)
+                    ?: SingleMeme(name = keyword, detectType = detectType).also { memeConfig.memes += it }
+            }
 
             meme.replyContent.addAll(replies)
             memeConfig.lastUpdateTime = Instant.now().epochSecond
@@ -214,16 +232,28 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @Filter("delmeme {{operation,.+}}")
-    suspend fun OneBotMessageEvent.delMeme(@FilterValue("operation") operation: String) {
+    @Filter("del{{type,(group)?meme}} {{operation,.+}}")
+    suspend fun OneBotMessageEvent.delMeme(
+        @FilterValue("type") type: String,
+        @FilterValue("operation") operation: String,
+    ) {
         val keyword = operation.substringBefore("#").trim()
         val replies = operation.substringAfter("#", "")
             .split("|")
             .filter { it.isNotEmpty() }
             .map { it.trim() }
             .toSet()
+        val isGroup = type.startsWith("group")
+        if (isGroup && this !is OneBotNormalGroupMessageEvent) return
+        val groupID = if (this is OneBotNormalGroupMessageEvent) groupId.toString() else null
 
-        val meme = findMemeInstance(keyword) ?: return
+        val meme = findMemeInstance(keyword) {
+            if (isGroup) {
+                !whiteListGroups.isNullOrEmpty() && groupID in whiteListGroups
+            } else {
+                true
+            }
+        } ?: return
         if (replies.isNotEmpty() && replies.none { it in meme.replyContent }) {
             directlySend("在 $keyword 中没有找到该回复！")
             return
@@ -373,8 +403,12 @@ class Meme {
     /**
      * 根据关键词查找有无对应Meme实例，未找到会回复相应提示
      */
-    suspend fun OneBotMessageEvent.findMemeInstance(keyword: String, sendFeedback: Boolean = true): SingleMeme? =
-        memeConfig.memes.firstOrNull {
+    suspend fun OneBotMessageEvent.findMemeInstance(
+        keyword: String,
+        sendFeedback: Boolean = true,
+        filter: SingleMeme.() -> Boolean = { true }
+    ): SingleMeme? =
+        memeConfig.memes.filter(filter).firstOrNull {
             keyword.trim().lowercase() in setOf(
                 it.name,
                 *(it.alias?.toTypedArray() ?: emptyArray())
