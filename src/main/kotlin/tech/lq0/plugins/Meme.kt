@@ -98,12 +98,14 @@ class Meme {
                 }
 
                 val regex = Regex(it.name, RegexOption.IGNORE_CASE)
-                val index = regex.matchEntire(text)
-                    ?.groups
-                    ?.get("id")
-                    ?.value
-                    ?.toIntOrNull()
-                    ?.coerceIn(1..it.replyContent.size)
+                val index = runCatching {
+                    regex.matchEntire(text)
+                        ?.groups
+                        ?.get("id")
+                        ?.value
+                        ?.toIntOrNull()
+                        ?.coerceIn(1..it.replyContent.size)
+                }.getOrNull()
 
                 directlySend(
                     regex.replace(
