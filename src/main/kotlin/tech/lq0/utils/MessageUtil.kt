@@ -43,20 +43,14 @@ suspend fun OneBotMessageEvent.directlySend(messages: Messages, autoRevoke: Bool
         }
 
         is OneBotGroupPrivateMessageEvent -> {
-            val source = source()
-
-            // 防止意外响应黑名单群
-            if (source.id.toString() in botPermissionConfig.groupDisabledList
-                || source.id.toString() in botPermissionConfig.groupBlackList
-            ) return
-
-            source.send(messages).autoRevoke(shouldRevoke)
-            chatLogger.info("bot <- 群 ${source.name}(${source.id}) ${content().nick ?: content().name}($authorId): ${messages.toText()}")
+            val content = content()
+            content.send(messages)
+            chatLogger.info("bot <- 群 ${content.name}(${content.id}) ${content().nick ?: content().name}($authorId): ${messages.toText()}")
         }
 
         is OneBotFriendMessageEvent -> {
             val content = content()
-            reply(messages).autoRevoke(shouldRevoke)
+            content.send(messages)
             chatLogger.info("bot <- ${content.name}(${content.id}): ${messages.toText()}")
         }
 
