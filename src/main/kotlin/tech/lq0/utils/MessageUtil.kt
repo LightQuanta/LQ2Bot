@@ -32,7 +32,6 @@ suspend fun OneBotMessageEvent.directlySend(messages: Messages, autoRevoke: Bool
     when (this) {
         is OneBotGroupMessageEvent -> {
             val content = content()
-
             // 防止意外响应黑名单群
             if (content.id.toString() in botPermissionConfig.groupDisabledList
                 || content.id.toString() in botPermissionConfig.groupBlackList
@@ -43,14 +42,20 @@ suspend fun OneBotMessageEvent.directlySend(messages: Messages, autoRevoke: Bool
         }
 
         is OneBotGroupPrivateMessageEvent -> {
+            val source = source()
+            // 防止意外响应黑名单群
+            if (source.id.toString() in botPermissionConfig.groupDisabledList
+                || source.id.toString() in botPermissionConfig.groupBlackList
+            ) return
+
             val content = content()
-            content.send(messages)
+            reply(messages)
             chatLogger.info("bot <- 群 ${content.name}(${content.id}) ${content().nick ?: content().name}($authorId): ${messages.toText()}")
         }
 
         is OneBotFriendMessageEvent -> {
             val content = content()
-            content.send(messages)
+            reply(messages)
             chatLogger.info("bot <- ${content.name}(${content.id}): ${messages.toText()}")
         }
 
@@ -92,7 +97,6 @@ suspend fun OneBotMessageEvent.replyAndLog(messages: Messages) {
     when (this) {
         is OneBotGroupMessageEvent -> {
             val content = content()
-
             // 防止意外响应黑名单群
             if (content.id.toString() in botPermissionConfig.groupDisabledList
                 || content.id.toString() in botPermissionConfig.groupBlackList
@@ -103,7 +107,6 @@ suspend fun OneBotMessageEvent.replyAndLog(messages: Messages) {
 
         is OneBotGroupPrivateMessageEvent -> {
             val source = source()
-
             // 防止意外响应黑名单群
             if (source.id.toString() in botPermissionConfig.groupDisabledList
                 || source.id.toString() in botPermissionConfig.groupBlackList
