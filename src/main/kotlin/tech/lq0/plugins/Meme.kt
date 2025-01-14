@@ -79,7 +79,7 @@ class Meme {
             if (authorId.toString() in presetReplyInfo) {
                 val (keyword, reply) = presetReplyInfo[authorId.toString()]!!
                 if (keyword == text) {
-                    directlySend(reply)
+                    directlySend(reply, true)
                     presetReplyInfo.remove(authorId.toString())
                     return
                 }
@@ -102,7 +102,7 @@ class Meme {
                         directlySend(imageName)
                     }
                 } else {
-                    directlySend(reply)
+                    directlySend(reply, true)
                 }
 
             } else {
@@ -132,7 +132,8 @@ class Meme {
                         } else {
                             it.replyContent.random()
                         }
-                    )
+                    ),
+                    true,
                 )
             }
         }

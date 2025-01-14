@@ -1,27 +1,33 @@
 package tech.lq0.utils
 
+import kotlinx.coroutines.*
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotFriendMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupPrivateMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
+import love.forte.simbot.component.onebot.v11.message.OneBotMessageReceipt
 import love.forte.simbot.component.onebot.v11.message.segment.OneBotText
 import love.forte.simbot.message.*
 import tech.lq0.interceptor.addMemberRateLimit
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * 直接发送消息，不会额外创建一条回复
  */
-suspend fun OneBotMessageEvent.directlySend(message: String) =
-    directlySend(messagesOf(message.toText()))
+suspend fun OneBotMessageEvent.directlySend(message: String, autoRevoke: Boolean = false) =
+    directlySend(messagesOf(message.toText()), autoRevoke)
 
 /**
  * 直接发送消息，不会额外创建一条回复
  */
-suspend fun OneBotMessageEvent.directlySend(messages: Messages) {
+suspend fun OneBotMessageEvent.directlySend(messages: Messages, autoRevoke: Boolean = false) {
     // 防止意外响应黑名单成员
     if (authorId.toString() in botPermissionConfig.memberBlackList) return
     // 为用户添加功能调用限流
     addMemberRateLimit(authorId.toString())
+
+    // 是否在60s后自动撤回过长消息
+    val shouldRevoke = autoRevoke && messages.toText().length > 200
 
     when (this) {
         is OneBotGroupMessageEvent -> {
@@ -32,7 +38,7 @@ suspend fun OneBotMessageEvent.directlySend(messages: Messages) {
                 || content.id.toString() in botPermissionConfig.groupBlackList
             ) return
 
-            content.send(messages)
+            content.send(messages).autoRevoke(shouldRevoke)
             chatLogger.info("bot <- 群 ${content.name}(${content.id}): ${messages.toText()}")
         }
 
@@ -44,19 +50,38 @@ suspend fun OneBotMessageEvent.directlySend(messages: Messages) {
                 || source.id.toString() in botPermissionConfig.groupBlackList
             ) return
 
-            source.send(messages)
+            source.send(messages).autoRevoke(shouldRevoke)
             chatLogger.info("bot <- 群 ${source.name}(${source.id}) ${content().nick ?: content().name}($authorId): ${messages.toText()}")
         }
 
         is OneBotFriendMessageEvent -> {
             val content = content()
-            reply(messages)
+            reply(messages).autoRevoke(shouldRevoke)
             chatLogger.info("bot <- ${content.name}(${content.id}): ${messages.toText()}")
         }
 
         else -> {
-            reply(messages)
+            reply(messages).autoRevoke(shouldRevoke)
             chatLogger.info("bot <- ? : ${messages.toText()}")
+        }
+    }
+}
+
+val autoRevokeScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+/**
+ * 在60s后自动撤回已发送消息
+ * @param revoke 是否启用自动撤回
+ */
+private fun OneBotMessageReceipt.autoRevoke(revoke: Boolean) {
+    if (!revoke) return
+
+    autoRevokeScope.launch {
+        delay(60.seconds)
+        try {
+            delete()
+        } catch (e: Exception) {
+            chatLogger.error("自动撤回失败: $e")
         }
     }
 }
