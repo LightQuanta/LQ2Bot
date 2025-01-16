@@ -35,7 +35,7 @@ class Meme {
     fun testRegexWithTimeout(pattern: String, input: String): Boolean {
         val executor = Executors.newSingleThreadExecutor()
         val future = executor.submit<Boolean> {
-            input.matches(Regex(pattern, RegexOption.IGNORE_CASE))
+            Regex(pattern, RegexOption.IGNORE_CASE).containsMatchIn(input)
         }
         return try {
             future.get(100, TimeUnit.MILLISECONDS)
@@ -115,14 +115,13 @@ class Meme {
                 }
 
                 val regex = Regex(it.name, RegexOption.IGNORE_CASE)
-                val index = runCatching {
-                    regex.matchEntire(text)
-                        ?.groups
-                        ?.get("id")
-                        ?.value
-                        ?.toIntOrNull()
-                        ?.coerceIn(1..it.replyContent.size)
-                }.getOrNull()
+                val index = regex.findAll(text)
+                    .firstOrNull { match -> match.groups["id"] != null }
+                    ?.groups
+                    ?.get("id")
+                    ?.value
+                    ?.toIntOrNull()
+                    ?.coerceIn(1..it.replyContent.size)
 
                 directlySend(
                     regex.replace(
