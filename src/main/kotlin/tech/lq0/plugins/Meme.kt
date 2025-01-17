@@ -115,13 +115,15 @@ class Meme {
                 }
 
                 val regex = Regex(it.name, RegexOption.IGNORE_CASE)
-                val index = regex.findAll(text)
-                    .firstOrNull { match -> match.groups["id"] != null }
-                    ?.groups
-                    ?.get("id")
-                    ?.value
-                    ?.toIntOrNull()
-                    ?.coerceIn(1..it.replyContent.size)
+                val index = runCatching {
+                    regex.findAll(text)
+                        .firstOrNull { match -> match.groups["id"] != null }
+                        ?.groups
+                        ?.get("id")
+                        ?.value
+                        ?.toIntOrNull()
+                        ?.coerceIn(1..it.replyContent.size)
+                }.getOrNull()
 
                 directlySend(
                     regex.replace(
