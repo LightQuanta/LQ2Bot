@@ -18,6 +18,11 @@ suspend fun OneBotMessageEvent.directlySend(message: String, autoRevoke: Boolean
     directlySend(messagesOf(message.toText()), autoRevoke)
 
 /**
+ * 多长的消息会被视为过长消息
+ */
+const val LONG_MESSAGE_LENGTH = 500
+
+/**
  * 直接发送消息，不会额外创建一条回复
  */
 suspend fun OneBotMessageEvent.directlySend(messages: Messages, autoRevoke: Boolean = false) {
@@ -27,7 +32,7 @@ suspend fun OneBotMessageEvent.directlySend(messages: Messages, autoRevoke: Bool
     addMemberRateLimit(authorId.toString())
 
     // 是否在60s后自动撤回过长消息
-    val shouldRevoke = autoRevoke && messages.toText().length > 200
+    val shouldRevoke = autoRevoke && messages.toText().length > LONG_MESSAGE_LENGTH
 
     when (this) {
         is OneBotGroupMessageEvent -> {
