@@ -243,6 +243,10 @@ class LiveNotify @Autowired constructor(app: Application) {
                     add(buildString {
                         append(filteredName)
                         if (showLiveArea) append(" 在$parentAreaName-${areaName}分区")
+
+                        // 开播时间更新但开播状态不变，即在bot轮询期间内重新开播
+                        if (lastTimeRoomStatus.liveStatus == 1) append("重新")
+
                         appendLine("开播了！")
 
                         if (showTitle) appendLine(filteredTitle)
