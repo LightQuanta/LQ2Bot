@@ -32,10 +32,15 @@ class Meme {
     /**
      * 匹配时间超过100ms视为超时的正则匹配，避免灾难性回溯
      */
-    fun testRegexWithTimeout(pattern: String, input: String): Boolean {
+    fun testRegexWithTimeout(pattern: String, input: String, matchEntire: Boolean): Boolean {
         val executor = Executors.newSingleThreadExecutor()
+        val regex = Regex(pattern, RegexOption.IGNORE_CASE)
         val future = executor.submit<Boolean> {
-            Regex(pattern, RegexOption.IGNORE_CASE).containsMatchIn(input)
+            if (matchEntire) {
+                input.matches(regex)
+            } else {
+                regex.containsMatchIn(input)
+            }
         }
         return try {
             future.get(100, TimeUnit.MILLISECONDS)
@@ -68,7 +73,11 @@ class Meme {
                         DetectType.EQUAL -> text.lowercase() == keyword.lowercase()
                         DetectType.STARTS_WITH -> text.lowercase().startsWith(keyword.lowercase())
                         DetectType.REGEX_MATCH,
-                        DetectType.REGEX_REPLACE -> testRegexWithTimeout(keyword, text)
+                        DetectType.REGEX_REPLACE -> testRegexWithTimeout(
+                            keyword,
+                            text,
+                            it.detectType == DetectType.REGEX_REPLACE
+                        )
                     }
                 }
         }?.let {
@@ -126,7 +135,7 @@ class Meme {
                 }.getOrNull()
 
                 directlySend(
-                    regex.replace(
+                    regex.replaceFirst(
                         text,
                         if (index != null) {
                             it.replyContent.toList()[index - 1]
@@ -252,6 +261,67 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
+    @Filter("modifymeme {{keyword,\\S+?}} {{operation,\\w+}} {{args,.+}}")
+    suspend fun OneBotMessageEvent.modifyMeme(
+        @FilterValue("keyword") keyword: String,
+        @FilterValue("operation") operation: String,
+        @FilterValue("args") args: String,
+    ) {
+        if (args.isBlank()) return
+        if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
+            val meme = findMemeInstance(keyword) ?: return
+
+            when (operation) {
+                "addwhitelist" -> {
+                    val groups = args.split(Regex("\\S+")).mapNotNull { it.toIntOrNull()?.toString() }
+                    meme.whiteListGroups.addAll(groups)
+                }
+
+                "removewhitelist" -> {
+                    val groups = args.split(Regex("\\S+")).mapNotNull { it.toIntOrNull()?.toString() }
+                    meme.whiteListGroups.removeAll(groups.toSet())
+                }
+
+                "addblacklist" -> {
+                    val groups = args.split(Regex("\\S+")).mapNotNull { it.toIntOrNull()?.toString() }
+                    meme.blackListGroups.addAll(groups)
+                }
+
+                "removeblacklist" -> {
+                    val groups = args.split(Regex("\\S+")).mapNotNull { it.toIntOrNull()?.toString() }
+                    meme.blackListGroups.removeAll(groups.toSet())
+                }
+
+                "rename" -> {
+                    meme.alias -= args
+                    meme.name = args
+                }
+
+                "modifytype" -> {
+                    meme.detectType = when (args) {
+                        "equal" -> DetectType.EQUAL
+                        "regex" -> DetectType.REGEX_MATCH
+                        "regexreplace" -> DetectType.REGEX_REPLACE
+                        "startswith" -> DetectType.STARTS_WITH
+                        else -> {
+                            directlySend("请输入正确的检测类型！")
+                            return
+                        }
+                    }
+                }
+            }
+
+            memeConfig.lastUpdateTime = Instant.now().epochSecond
+            saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
+            logUpdate()
+            directlySend("已更新${meme.name}(id: ${meme.id})")
+        } else {
+            notifyAdmin()
+        }
+    }
+
+    @Listener
+    @FunctionSwitch("Meme")
     @Filter("del{{type,(group)?meme}} {{operation,.+}}")
     suspend fun OneBotMessageEvent.delMeme(
         @FilterValue("type") type: String,
@@ -304,7 +374,7 @@ class Meme {
     @Filter("{{operation,(un)?}}banmeme {{keyword,.+}}")
     suspend fun OneBotNormalGroupMessageEvent.banMeme(
         @FilterValue("operation") operation: String,
-        @FilterValue("keyword") keyword: String
+        @FilterValue("keyword") keyword: String,
     ) {
         val meme = findMemeInstance(keyword) ?: return
 

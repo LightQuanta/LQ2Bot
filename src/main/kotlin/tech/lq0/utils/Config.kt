@@ -39,8 +39,8 @@ enum class DetectType {
 
 @Serializable
 data class SingleMeme(
-    val detectType: DetectType = DetectType.EQUAL,
-    val name: String,
+    var detectType: DetectType = DetectType.EQUAL,
+    var name: String,
     val id: String = UUID.randomUUID().toString(),
     var alias: MutableSet<String> = mutableSetOf(),
     val replyContent: LinkedHashSet<String> = linkedSetOf(),
