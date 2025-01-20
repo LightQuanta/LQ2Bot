@@ -156,7 +156,7 @@ class DDTool {
 
             if (UIDNameCache[uid.toString()] != name && !name.isSensitive()) {
                 UIDNameCache[uid.toString()] = name
-                saveConfig("Cache", "UID2Name.json", Json.encodeToString(UIDNameCache))
+                saveConfig("Cache", "UID2Name.json", Json.encodeToString(UIDNameCache), false)
             }
 
             return generateUserIntro(name, uid.toString(), roomID.toString(), title, sign, face, fans, isLiving)

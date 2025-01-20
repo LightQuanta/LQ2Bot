@@ -149,7 +149,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                         liveStateCache[info.uid.toString()] = info
                     }
 
-                    saveConfig("Cache", "UID2Name.json", Json.encodeToString(UIDNameCache))
+                    saveConfig("Cache", "UID2Name.json", Json.encodeToString(UIDNameCache), false)
                     saveConfig("LiveNotify", "liveStateCache.json", Json.encodeToString(liveStateCache), false)
 
                     delayAfterQuery(POLLING_DELAY.seconds)
