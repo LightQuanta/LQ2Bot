@@ -25,6 +25,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.io.path.Path
+import kotlin.time.Duration.Companion.minutes
 
 @Component
 class Meme {
@@ -99,6 +100,7 @@ class Meme {
                 val reply = it.replyContent.random()
 
                 if (reply.startsWith("[picture]")) {
+                    // 图片回复
                     val imageName = reply.substringAfter("[picture]")
                     try {
                         directlySend(
@@ -110,7 +112,19 @@ class Meme {
                         memeLogger.error("发送图片 $imageName 失败: $e")
                         directlySend(imageName)
                     }
+                } else if (reply.startsWith("[ban]") && this is OneBotNormalGroupMessageEvent) {
+                    // 群内自动禁言
+                    val time = reply.substringAfter("[ban]").toIntOrNull()?.coerceIn(1..1440)
+                    time?.let {
+                        try {
+                            author().ban(time.minutes)
+                        } catch (e: Exception) {
+                            chatLogger.error("禁言失败: $e")
+                            directlySend(reply, true)
+                        }
+                    }
                 } else {
+                    // 普通回复
                     directlySend(reply, true)
                 }
 
