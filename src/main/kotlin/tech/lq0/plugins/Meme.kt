@@ -323,6 +323,11 @@ class Meme {
                         }
                     }
                 }
+
+                else -> {
+                    directlySend("请输入正确的操作类型！")
+                    return
+                }
             }
 
             memeConfig.lastUpdateTime = Instant.now().epochSecond
