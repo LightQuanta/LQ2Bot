@@ -287,22 +287,22 @@ class Meme {
 
             when (operation) {
                 "addwhitelist" -> {
-                    val groups = args.split(Regex("\\S+")).mapNotNull { it.toIntOrNull()?.toString() }
+                    val groups = args.split(Regex("\\s+")).mapNotNull { it.toLongOrNull()?.toString() }
                     meme.whiteListGroups.addAll(groups)
                 }
 
                 "removewhitelist" -> {
-                    val groups = args.split(Regex("\\S+")).mapNotNull { it.toIntOrNull()?.toString() }
+                    val groups = args.split(Regex("\\s+")).mapNotNull { it.toLongOrNull()?.toString() }
                     meme.whiteListGroups.removeAll(groups.toSet())
                 }
 
                 "addblacklist" -> {
-                    val groups = args.split(Regex("\\S+")).mapNotNull { it.toIntOrNull()?.toString() }
+                    val groups = args.split(Regex("\\s+")).mapNotNull { it.toLongOrNull()?.toString() }
                     meme.blackListGroups.addAll(groups)
                 }
 
                 "removeblacklist" -> {
-                    val groups = args.split(Regex("\\S+")).mapNotNull { it.toIntOrNull()?.toString() }
+                    val groups = args.split(Regex("\\s+")).mapNotNull { it.toLongOrNull()?.toString() }
                     meme.blackListGroups.removeAll(groups.toSet())
                 }
 
