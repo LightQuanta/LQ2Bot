@@ -48,7 +48,7 @@ class Mute {
             content().send(
                 messagesOf(
                     "恭喜 ".toText(),
-                    At(authorId),
+                    At(target.id),
                     " 抽中了${time}分钟禁言套餐！".toText(),
                 )
             )
@@ -71,7 +71,7 @@ class Mute {
             content().send(
                 messagesOf(
                     "恭喜 ".toText(),
-                    At(authorId),
+                    At(target.id),
                     " 成功领取了${processedTime}分钟的禁言套餐！".toText(),
                 )
             )
