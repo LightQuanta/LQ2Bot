@@ -49,8 +49,9 @@ class RequestProcess {
                 chatLogger.info("已拒绝 $requesterId(${requester().name}) 发起的邀请加群请求(群位于黑名单): ${content().id}(${content().name})")
                 reject()
             } else {
-                chatLogger.info("已同意 $requesterId(${requester().name}) 发起的邀请加群请求: ${content().id}(${content().name})")
-                accept()
+                chatLogger.info("收到 $requesterId(${requester().name}) 发起的邀请加群请求: ${content().id}(${content().name})")
+//                chatLogger.info("已同意 $requesterId(${requester().name}) 发起的邀请加群请求: ${content().id}(${content().name})")
+//                accept()
             }
         }
     }
