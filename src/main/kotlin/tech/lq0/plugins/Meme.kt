@@ -178,7 +178,7 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @Filter("{{operation,add(group)?(meme|regexmeme|startswithmeme|regexreplacememe)}} {{keyword,.+}}#{{reply,.+}}")
+    @Filter("{{operation,add(group)?(meme|regexmeme|startswithmeme|regexreplacememe)}} {{keyword,.+}}#{{reply,[\\s\\S]+}}")
     suspend fun OneBotMessageEvent.addMeme(
         @FilterValue("operation") operation: String,
         @FilterValue("keyword") keyword: String,
@@ -275,7 +275,7 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @Filter("modifymeme {{keyword,\\S+?}} {{operation,\\w+}} {{args,.+}}")
+    @Filter("modifymeme {{keyword,\\S+?}} {{operation,\\w+}} {{args,[\\s\\S]+}}")
     suspend fun OneBotMessageEvent.modifyMeme(
         @FilterValue("keyword") keyword: String,
         @FilterValue("operation") operation: String,
@@ -341,7 +341,7 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @Filter("del{{type,(group)?meme}} {{operation,.+}}")
+    @Filter("del{{type,(group)?meme}} {{operation,[\\s\\S]+}}")
     suspend fun OneBotMessageEvent.delMeme(
         @FilterValue("type") type: String,
         @FilterValue("operation") operation: String,
@@ -443,7 +443,7 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @Filter("setrep {{keyword,.+?}}#{{content,.+}}")
+    @Filter("setrep {{keyword,.+?}}#{{content,[\\s\\S]+}}")
     suspend fun OneBotFriendMessageEvent.setReply(
         @FilterValue("keyword") keyword: String,
         @FilterValue("content") content: String,
@@ -460,7 +460,7 @@ class Meme {
 
     @Listener
     @FunctionSwitch("Meme")
-    @Filter("findmeme {{query,.+}}")
+    @Filter("findmeme {{query,[\\s\\S]+}}")
     suspend fun OneBotMessageEvent.findMeme(@FilterValue("query") query: String) {
         if (query.isEmpty()) return
         val keyword = query.substringBefore("#").trim().lowercase()
