@@ -54,7 +54,11 @@ suspend fun banMember(member: String, group: OneBotGroup?) {
 
 fun String?.isSensitive(): Boolean {
     if (isNullOrEmpty()) return false
-    if (sensitiveWordsRegex.any { it.containsMatchIn(this) }) return true
+    val rawTextMatch = sensitiveWordsRegex.firstOrNull { it.containsMatchIn(this) }
+    if (rawTextMatch != null) {
+        banLogger.warn("检测到 $this 触发敏感词匹配规则 ${rawTextMatch.pattern}")
+        return true
+    }
 
     // 将数字替换为汉字，方便后续拼音检测
     val numberReplaced = this
@@ -68,7 +72,11 @@ fun String?.isSensitive(): Boolean {
         .replace('7', '七')
         .replace('8', '八')
         .replace('9', '九')
-    if (sensitiveWordsRegex.any { it.containsMatchIn(numberReplaced) }) return true
+    val numReplacedMatch = sensitiveWordsRegex.firstOrNull { it.containsMatchIn(numberReplaced) }
+    if (numReplacedMatch != null) {
+        banLogger.warn("检测到 $numberReplaced(raw: $this) 触发敏感词匹配规则 ${numReplacedMatch.pattern}")
+        return true
+    }
 
     // 拼音检测，防止谐音绕过
     val chineseChars = chineseCharRegex.findAll(numberReplaced).map { it.value[0] }.toList()
@@ -80,5 +88,16 @@ fun String?.isSensitive(): Boolean {
     val pinyinAndNumberReplaced = numberReplaced.map { pinyin[it] ?: it }.joinToString("")
     val pinyinReplaced = this.map { pinyin[it] ?: it }.joinToString("")
 
-    return sensitiveWordsRegex.any { it.containsMatchIn(pinyinAndNumberReplaced) || it.containsMatchIn(pinyinReplaced) }
+    val pinyinAndNumReplacedMatch = sensitiveWordsRegex.firstOrNull { it.containsMatchIn(pinyinAndNumberReplaced) }
+    val pinyinReplacedMatch = sensitiveWordsRegex.firstOrNull { it.containsMatchIn(pinyinReplaced) }
+
+    if (pinyinAndNumReplacedMatch != null) {
+        banLogger.warn("检测到 $pinyinAndNumberReplaced(raw: $this) 触发敏感词匹配规则 ${pinyinAndNumReplacedMatch.pattern}")
+    }
+    if (pinyinReplacedMatch != null) {
+        banLogger.warn("检测到 $pinyinReplaced(raw: $this) 触发敏感词匹配规则 ${pinyinReplacedMatch.pattern}")
+    }
+
+    val finalMatch = pinyinAndNumReplacedMatch ?: pinyinReplacedMatch
+    return finalMatch != null
 }
