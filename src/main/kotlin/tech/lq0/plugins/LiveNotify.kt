@@ -1,19 +1,18 @@
 package tech.lq0.plugins
 
 import io.ktor.client.*
+import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import love.forte.simbot.application.Application
 import love.forte.simbot.bot.Bot
+import love.forte.simbot.common.coroutines.IOOrDefault
 import love.forte.simbot.common.id.StringID.Companion.ID
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
@@ -98,8 +97,16 @@ const val POLLING_DELAY = 30
 class LiveNotify @Autowired constructor(app: Application) {
 
     init {
-        CoroutineScope(Dispatchers.IO).launch {
-            val client = HttpClient()
+        liveLogger.info("init")
+        CoroutineScope(Dispatchers.IOOrDefault).launch {
+            liveLogger.info("scope init")
+
+            val client = HttpClient {
+                liveLogger.info("http client init")
+                BrowserUserAgent()
+            }
+
+            liveLogger.info("启动直播状态轮询")
 
             while (true) {
                 markQueryStart()
@@ -109,6 +116,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                     val bot = try {
                         app.botManagers.firstBot()
                     } catch (e: Exception) {
+                        liveLogger.error(e.message)
                         delayAfterQuery(5.seconds)
                         continue
                     }
@@ -120,12 +128,16 @@ class LiveNotify @Autowired constructor(app: Application) {
                     }
 
                     val responseData: BiliApiResponse<Map<String, RoomInfo>> = try {
-                        json.decodeFromString(
-                            client.post("https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids") {
-                                contentType(ContentType.Application.Json)
-                                setBody("""{"uids":[${subscribedUIDs.joinToString(",")}]}""")
-                            }.bodyAsText()
-                        )
+                        // liveLogger.info("sending request")
+
+                        withTimeout(10.seconds) {
+                            json.decodeFromString(
+                                client.post("https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids") {
+                                    contentType(ContentType.Application.Json)
+                                    setBody("""{"uids":[${subscribedUIDs.joinToString(",")}]}""")
+                                }.bodyAsText()
+                            )
+                        }
                     } catch (e: Exception) {
                         liveLogger.error("批量获取直播间信息失败: $e")
                         delayAfterQuery(POLLING_DELAY.seconds)
@@ -326,6 +338,7 @@ class LiveNotify @Autowired constructor(app: Application) {
      * 在开始轮询后准确延迟指定时长
      */
     suspend fun delayAfterQuery(duration: kotlin.time.Duration) {
+        // liveLogger.info("延迟 ${duration.inWholeMilliseconds} 毫秒")
         val delay = (queryStartTime + duration.inWholeMilliseconds - System.currentTimeMillis()).milliseconds
         delay(delay)
     }
@@ -392,7 +405,10 @@ class LiveNotify @Autowired constructor(app: Application) {
 
             for (uid in uidToRemove) {
                 val bindGroups = liveUIDBind[uid]!!.also { it -= groupId.toString() }
-                if (bindGroups.isEmpty()) liveUIDBind -= uid
+                if (bindGroups.isEmpty()) {
+                    liveStateCache -= uid
+                    liveUIDBind -= uid
+                }
             }
             liveLogger.info(
                 "群 $groupId(${content().name}) 取消订阅了${uidToRemove.size}个主播: ${
