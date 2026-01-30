@@ -32,6 +32,7 @@ import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.interceptor.RequireBotAdmin
 import tech.lq0.utils.*
 import java.net.URL
+import kotlin.math.roundToLong
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -291,7 +292,8 @@ class LiveNotify @Autowired constructor(app: Application) {
                             if (hazelTimeUnit) {
                                 val diff = liveEndTime - liveStartTime
                                 val times = (diff - (diff % 60)).toDouble() / (60.0 * 60.0 * 2.0)
-                                append("（${times}灰）")
+                                val formattedTimes = (times * 1000000).roundToLong() / 1000000.0
+                                append("（${formattedTimes}灰）")
                             }
                         })
                     }
@@ -467,7 +469,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                 val area = it.areaName
 
                 """
-                    $name 正在${area}分区直播，已开播时长：${getTimeDiffStr(it.liveTime, currentTime)}
+                    $name 正在${area}分区直播，已开播${getTimeDiffStr(it.liveTime, currentTime)}
                     $title
                     $room
                 """.trimIndent()
