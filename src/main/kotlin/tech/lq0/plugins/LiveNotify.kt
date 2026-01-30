@@ -280,6 +280,11 @@ class LiveNotify @Autowired constructor(app: Application) {
                         add(buildString {
                             append("${filteredName}下播了！")
                             if (showStreamTime) append("本次直播时长: ${getTimeDiffStr(liveStartTime, liveEndTime)}")
+
+                            if (hazelTimeUnit) {
+                                val times = (liveEndTime - liveStartTime).toDouble() / (60.0 * 60.0 * 2.0)
+                                append("（${times}灰）")
+                            }
                         })
                     }
                 } else null
@@ -420,6 +425,19 @@ class LiveNotify @Autowired constructor(app: Application) {
             )
         }
         saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
+    }
+
+    @Listener
+    @RequireAdmin
+    @FunctionSwitch("LiveNotify")
+    @ChinesePunctuationReplace
+    @Filter("!hazel")
+    suspend fun OneBotNormalGroupMessageEvent.hazelTimeUnit() {
+        with(liveGroupConfig.getOrPut(groupId.toString()) { LiveNotifyGroupConfig() }) {
+            hazelTimeUnit = !hazelTimeUnit
+            directlySend(if (hazelTimeUnit) "已启用计量单位" else "已禁用计量单位")
+        }
+        saveConfig("LiveNotify", "liveGroupConfig.json", Json.encodeToString(liveGroupConfig))
     }
 
     @Listener

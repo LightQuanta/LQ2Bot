@@ -112,6 +112,9 @@ data class LiveNotifyGroupConfig(
 
     /** 是否在非直播时通知直播标题更改 */
     var notifyTitleChangeWhileNotStreaming: Boolean = false,
+
+    /** 神秘配置项 */
+    var hazelTimeUnit: Boolean = false,
 )
 
 /**
