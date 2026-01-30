@@ -173,34 +173,31 @@ class LiveNotify @Autowired constructor(app: Application) {
         }
     }
 
-    /**
-     * 根据获取到的单个主播的直播间信息，检测并通知对应的群聊
-     */
-    suspend fun RoomInfo.informStatusChange(bot: Bot) {
-        // 获取用户名，检测敏感词，缓存 UID -> 名称 对应关系
-        val isNameSensitive = name.isSensitive()
-        val filteredName = if (uid.toString() in sensitiveLivers) "UID: $uid" else {
-            if (isNameSensitive) {
-                liveLogger.warn("检测到主播 UID: $uid($name) 名称疑似含有敏感词，已替换为UID")
-                sensitiveLivers += uid.toString()
-                saveConfig(
-                    "LiveNotify",
-                    "sensitiveLivers.json",
-                    Json.encodeToString(sensitiveLivers)
-                )
-                "UID: $uid"
-            } else name.also {
-                if (UIDNameCache.getOrDefault(uid.toString(), "") != name) {
-                    UIDNameCache[uid.toString()] = name
+    // 获取用户名，检测敏感词，缓存 UID -> 名称 对应关系
+    private val RoomInfo.filteredLiverName
+        get(): String {
+            val uid = uid.toString()
+            return if (uid in sensitiveLivers) "UID: $uid" else {
+                if (name.isSensitive()) {
+                    liveLogger.warn("检测到主播 UID: $uid($name) 名称疑似含有敏感词，已替换为UID")
+                    sensitiveLivers += uid
+                    saveConfig(
+                        "LiveNotify",
+                        "sensitiveLivers.json",
+                        Json.encodeToString(sensitiveLivers)
+                    )
+                    "UID: $uid"
+                } else name.also {
+                    if (UIDNameCache.getOrDefault(uid, "") != name) {
+                        UIDNameCache[uid] = name
+                    }
                 }
             }
         }
 
-        // 获取直播间状态缓存，重置liveTime和liveStatus以便在刚订阅时立刻发送开播通知
-        val lastTimeRoomStatus = liveStateCache.getOrPut(uid.toString()) { copy(liveTime = 0, liveStatus = 0) }
-
-        // 获取经过敏感词检测后的标题
-        val filteredTitle = if (uid.toString() in sensitiveLivers) "" else {
+    // 获取经过敏感词检测后的标题
+    private val RoomInfo.filteredTitle
+        get(): String = if (uid.toString() in sensitiveLivers) "" else {
             if (title.isSensitive()) {
                 liveLogger.warn("检测到主播 UID: $uid($name) 直播间标题($title)疑似含有敏感词，已替换为UID")
                 sensitiveLivers += uid.toString()
@@ -212,6 +209,16 @@ class LiveNotify @Autowired constructor(app: Application) {
                 ""
             } else title
         }
+
+    /**
+     * 根据获取到的单个主播的直播间信息，检测并通知对应的群聊
+     */
+    suspend fun RoomInfo.informStatusChange(bot: Bot) {
+        val filteredName = filteredLiverName
+        val filteredTitle = filteredTitle
+
+        // 获取直播间状态缓存，重置liveTime和liveStatus以便在刚订阅时立刻发送开播通知
+        val lastTimeRoomStatus = liveStateCache.getOrPut(uid.toString()) { copy(liveTime = 0, liveStatus = 0) }
 
         // 标题更改通知
         if (title != lastTimeRoomStatus.title) {
@@ -439,6 +446,40 @@ class LiveNotify @Autowired constructor(app: Application) {
             directlySend(if (hazelTimeUnit) "已启用计量单位" else "已禁用计量单位")
         }
         saveConfig("LiveNotify", "liveGroupConfig.json", Json.encodeToString(liveGroupConfig))
+    }
+
+    @Listener
+    @FunctionSwitch("LiveNotify")
+    @ChinesePunctuationReplace
+    @Filter("!live")
+    suspend fun OneBotNormalGroupMessageEvent.currentlyLive() {
+        val currentTime = System.currentTimeMillis() / 1000
+        val msg = liveUIDBind
+            .filter { groupId.toString() in it.value }
+            .mapNotNull { liveStateCache[it.key].takeIf { state -> state?.liveStatus == 1 } }
+            .ifEmpty {
+                directlySend("当前没有主播正在直播！")
+                return
+            }.joinToString("\n\n") {
+                val title = it.title
+                val room = "https://live.bilibili.com/${it.roomId}"
+                val name = it.filteredLiverName
+                val area = it.areaName
+
+                """
+                    $name 正在${area}分区直播，已开播时长：${getTimeDiffStr(it.liveTime, currentTime)}
+                    $title
+                    $room
+                """.trimIndent()
+            }
+
+        directlySend(
+            """
+                |当前正在直播的主播： 
+                |
+                |$msg
+            """.trimMargin()
+        )
     }
 
     @Listener
