@@ -282,7 +282,8 @@ class LiveNotify @Autowired constructor(app: Application) {
                             if (showStreamTime) append("本次直播时长: ${getTimeDiffStr(liveStartTime, liveEndTime)}")
 
                             if (hazelTimeUnit) {
-                                val times = (liveEndTime - liveStartTime).toDouble() / (60.0 * 60.0 * 2.0)
+                                val diff = liveEndTime - liveStartTime
+                                val times = (diff - (diff % 60)).toDouble() / (60.0 * 60.0 * 2.0)
                                 append("（${times}灰）")
                             }
                         })
