@@ -245,9 +245,11 @@ class LiveNotify @Autowired constructor(app: Application) {
             }
         }
 
+        val currentTime = System.currentTimeMillis() / 1000
+
         if (liveStatus == 1 && liveTime > lastTimeRoomStatus.liveTime) {
             // 开播通知
-            liveLogger.info("检测到 UID: $uid($name) 开播，本次获取延迟: ${System.currentTimeMillis() / 1000 - liveTime}秒，开播时间戳: $liveTime")
+            liveLogger.info("检测到 UID: $uid($name) 开播，本次获取延迟: ${currentTime - liveTime}秒，开播时间戳: $liveTime")
 
             //  尝试获取封面（为什么有的直播间封面为空）
             val image = try {
@@ -269,6 +271,11 @@ class LiveNotify @Autowired constructor(app: Application) {
 
                         appendLine("开播了！")
 
+                        // 重新开播时长
+                        if (lastTimeRoomStatus.liveStatus == 1) {
+                            append("（上次直播时长：${getTimeDiffStr(lastTimeRoomStatus.liveTime, currentTime)}）")
+                        }
+
                         if (showTitle) appendLine(filteredTitle)
                         if (showLink) appendLine("https://live.bilibili.com/$roomId")
                     })
@@ -278,19 +285,18 @@ class LiveNotify @Autowired constructor(app: Application) {
         } else if (liveStatus != 1 && lastTimeRoomStatus.liveTime > 1) {
             // 下播通知
             val liveStartTime = lastTimeRoomStatus.liveTime
-            val liveEndTime = System.currentTimeMillis() / 1000
 
-            liveLogger.info("检测到 UID: $uid($name) 下播，开播下播时间戳: $liveStartTime $liveEndTime")
+            liveLogger.info("检测到 UID: $uid($name) 下播，开播下播时间戳: $liveStartTime $currentTime")
 
             informSubscribedGroups(uid.toString(), bot) {
                 if (notifyStopStream) {
                     buildMessages {
                         add(buildString {
                             append("${filteredName}下播了！")
-                            if (showStreamTime) append("本次直播时长: ${getTimeDiffStr(liveStartTime, liveEndTime)}")
+                            if (showStreamTime) append("本次直播时长: ${getTimeDiffStr(liveStartTime, currentTime)}")
 
                             if (hazelTimeUnit) {
-                                val diff = liveEndTime - liveStartTime
+                                val diff = currentTime - liveStartTime
                                 val times = (diff - (diff % 60)).toDouble() / (60.0 * 60.0 * 2.0)
                                 val formattedTimes = (times * 100000).roundToLong() / 100000.0
                                 append("（${formattedTimes}灰）")
