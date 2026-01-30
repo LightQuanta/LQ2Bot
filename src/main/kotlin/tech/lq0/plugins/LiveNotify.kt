@@ -292,7 +292,7 @@ class LiveNotify @Autowired constructor(app: Application) {
                             if (hazelTimeUnit) {
                                 val diff = liveEndTime - liveStartTime
                                 val times = (diff - (diff % 60)).toDouble() / (60.0 * 60.0 * 2.0)
-                                val formattedTimes = (times * 1000000).roundToLong() / 1000000.0
+                                val formattedTimes = (times * 100000).roundToLong() / 100000.0
                                 append("（${formattedTimes}灰）")
                             }
                         })
