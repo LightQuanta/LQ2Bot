@@ -65,7 +65,7 @@ val json = Json {
 /**
  * 根据秒级时间戳计算时间差值字符串
  */
-fun getTimeDiffStr(startTime: Long, endTime: Long): String {
+fun getTimeDiffStr(startTime: Long, endTime: Long, hazel: Boolean = false): String {
     val diff = endTime - startTime
     val diffInDays = diff / (60 * 60 * 24)
     val diffInHours = diff % (60 * 60 * 24) / (60 * 60)
@@ -76,7 +76,11 @@ fun getTimeDiffStr(startTime: Long, endTime: Long): String {
         diffInHours > 0 -> "${diffInHours}小时${diffInMinutes}分钟"
         diffInMinutes > 0 -> "${diffInMinutes}分钟"
         else -> "不到一分钟"
-    }
+    } + if (hazel) {
+        val times = (diff - (diff % 60)).toDouble() / (60.0 * 60.0 * 2.0)
+        val formattedTimes = (times * 100000).roundToLong() / 100000.0
+        "（${formattedTimes}灰）"
+    } else ""
 }
 
 /**
@@ -269,12 +273,18 @@ class LiveNotify @Autowired constructor(app: Application) {
                         // 开播时间更新但开播状态不变，即在bot轮询期间内重新开播
                         if (lastTimeRoomStatus.liveStatus == 1) append("重新")
 
-                        appendLine("开播了！")
+                        append("开播了！")
 
                         // 重新开播时长
                         if (lastTimeRoomStatus.liveStatus == 1) {
-                            append("（上次直播时长：${getTimeDiffStr(lastTimeRoomStatus.liveTime, currentTime)}）")
+                            append(
+                                "（上次直播时长：${
+                                    getTimeDiffStr(lastTimeRoomStatus.liveTime, currentTime, hazelTimeUnit)
+                                }）"
+                            )
                         }
+
+                        appendLine()
 
                         if (showTitle) appendLine(filteredTitle)
                         if (showLink) appendLine("https://live.bilibili.com/$roomId")
@@ -293,14 +303,9 @@ class LiveNotify @Autowired constructor(app: Application) {
                     buildMessages {
                         add(buildString {
                             append("${filteredName}下播了！")
-                            if (showStreamTime) append("本次直播时长: ${getTimeDiffStr(liveStartTime, currentTime)}")
-
-                            if (hazelTimeUnit) {
-                                val diff = currentTime - liveStartTime
-                                val times = (diff - (diff % 60)).toDouble() / (60.0 * 60.0 * 2.0)
-                                val formattedTimes = (times * 100000).roundToLong() / 100000.0
-                                append("（${formattedTimes}灰）")
-                            }
+                            if (showStreamTime) append(
+                                "本次直播时长: ${getTimeDiffStr(liveStartTime, currentTime, hazelTimeUnit)}"
+                            )
                         })
                     }
                 } else null
@@ -474,8 +479,10 @@ class LiveNotify @Autowired constructor(app: Application) {
                 val name = it.filteredLiverName
                 val area = it.areaName
 
+                val config = liveGroupConfig[groupId.toString()] ?: LiveNotifyGroupConfig()
+
                 """
-                    $name 正在${area}分区直播，已开播${getTimeDiffStr(it.liveTime, currentTime)}
+                    $name 正在${area}分区直播，已开播${getTimeDiffStr(it.liveTime, currentTime, config.hazelTimeUnit)}
                     $title
                     $room
                 """.trimIndent()
