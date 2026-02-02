@@ -14,8 +14,8 @@ import tech.lq0.interceptor.addMemberRateLimit
 /**
  * 直接发送消息，不会额外创建一条回复
  */
-suspend fun OneBotMessageEvent.directlySend(message: String, autoRevoke: Boolean = false) =
-    directlySend(messagesOf(message.toText()), autoRevoke)
+suspend fun OneBotMessageEvent.directlySend(message: String, foldMessageThreshold: Int = LONG_MESSAGE_LENGTH) =
+    directlySend(messagesOf(message.toText()), foldMessageThreshold)
 
 /**
  * 多长的消息会被视为过长消息
@@ -25,14 +25,14 @@ const val LONG_MESSAGE_LENGTH = 500
 /**
  * 直接发送消息，不会额外创建一条回复
  */
-suspend fun OneBotMessageEvent.directlySend(messages: Messages, foldLongMessage: Boolean = false) {
+suspend fun OneBotMessageEvent.directlySend(messages: Messages, foldMessageThreshold: Int = LONG_MESSAGE_LENGTH) {
     // 防止意外响应黑名单成员
     if (authorId.toString() in botPermissionConfig.memberBlackList) return
     // 为用户添加功能调用限流
     addMemberRateLimit(authorId.toString())
 
     // 是否将过长消息修改为转发消息
-    val foldLongMessage = foldLongMessage && messages.toText().length > LONG_MESSAGE_LENGTH
+    val foldLongMessage = messages.toText().length > foldMessageThreshold
 
     when (this) {
         is OneBotGroupMessageEvent -> {

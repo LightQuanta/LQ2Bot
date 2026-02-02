@@ -45,7 +45,7 @@ class Meme {
         }
         return try {
             future.get(100, TimeUnit.MILLISECONDS)
-        } catch (e: TimeoutException) {
+        } catch (_: TimeoutException) {
             false
         } finally {
             executor.shutdownNow()
@@ -89,7 +89,7 @@ class Meme {
             if (authorId.toString() in presetReplyInfo) {
                 val (keyword, reply) = presetReplyInfo[authorId.toString()]!!
                 if (keyword == text) {
-                    directlySend(reply, true)
+                    directlySend(reply)
                     presetReplyInfo.remove(authorId.toString())
                     return
                 }
@@ -120,19 +120,19 @@ class Meme {
                             author().ban(time.minutes)
                         } catch (e: Exception) {
                             chatLogger.error("禁言失败: $e")
-                            directlySend(reply, true)
+                            directlySend(reply)
                         }
                     }
                 } else {
                     // 普通回复
-                    directlySend(reply, true)
+                    directlySend(reply)
                 }
 
             } else {
                 // 为正则替换类型Meme进行敏感词检测
                 if (text.isSensitive()) {
                     // directlySend("（测试消息）检测到违规内容")
-                    val group = if (this is OneBotNormalGroupMessageEvent) this else null
+                    val group = this as? OneBotNormalGroupMessageEvent
                     banMember(authorId.toString(), group?.content())
                     return
                 }
@@ -156,8 +156,7 @@ class Meme {
                         } else {
                             it.replyContent.random()
                         }
-                    ),
-                    true,
+                    )
                 )
             }
         }
@@ -202,7 +201,7 @@ class Meme {
         if (detectType == DetectType.REGEX_REPLACE || detectType == DetectType.REGEX_MATCH) {
             try {
                 Regex(keyword)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 directlySend("正则表达式输入格式错误！")
                 return
             }
