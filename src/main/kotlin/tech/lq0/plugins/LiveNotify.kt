@@ -576,7 +576,7 @@ class LiveNotify @Autowired constructor(app: Application) {
             if (subscribedUIDs.isEmpty()) {
                 "该群还没有订阅主播！"
             } else {
-                "该群订阅的${subscribedUIDs.size}个主播UID: ${nameOrUIDs.joinToString()}"
+                "该群订阅的${subscribedUIDs.size}个主播: ${nameOrUIDs.joinToString()}"
             }
         )
     }
