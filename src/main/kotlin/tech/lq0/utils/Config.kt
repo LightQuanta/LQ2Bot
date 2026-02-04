@@ -143,14 +143,14 @@ val alarms by lazy {
 }
 
 @Serializable
-data class VTBsUIDCache(
+data class VtuberUIDCache(
     var lastUpdateTime: Long = 0,
     var uidList: MutableSet<Long> = mutableSetOf(),
 )
 
 // 管人列表
-val VTBsCache by lazy {
-    readJSONConfigAs<VTBsUIDCache>("DDTool", "vtbs.json") ?: VTBsUIDCache()
+val vtuberCache by lazy {
+    readJSONConfigAs<VtuberUIDCache>("DDTool", "vtbs.json") ?: VtuberUIDCache()
 }
 
 // 群强制单推信息

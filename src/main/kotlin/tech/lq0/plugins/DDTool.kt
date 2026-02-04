@@ -25,7 +25,6 @@ import tech.lq0.interceptor.FunctionSwitch
 import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.utils.*
 import java.net.URL
-import kotlin.collections.set
 
 @Component
 class DDTool {
@@ -35,73 +34,45 @@ class DDTool {
     val rateLimit = mutableMapOf<String, Long>()
     val randomUser
         get() = runBlocking {
-            if (VTBsCache.uidList.isEmpty()) {
-                updateVTBsList()
+            if (vtuberCache.uidList.isEmpty()) {
+                updateVtuberList()
             }
 
             // 缓存24小时
-            if (System.currentTimeMillis() - VTBsCache.lastUpdateTime > 1000 * 60 * 60 * 24) {
+            if (System.currentTimeMillis() - vtuberCache.lastUpdateTime > 1000 * 60 * 60 * 24) {
                 launch {
                     try {
-                        updateVTBsList()
+                        updateVtuberList()
                     } catch (e: Exception) {
                         chatLogger.error("获取管人列表失败: $e")
                     }
                 }
             }
-            if (VTBsCache.uidList.isEmpty()) null else VTBsCache.uidList.random()
-        }
-
-    val livingCache = VTBsUIDCache()
-    val randomLiving
-        get() = runBlocking {
-            if (livingCache.uidList.isEmpty()) {
-                updateLivingList()
-            }
-
-            // 缓存5分钟
-            if (System.currentTimeMillis() - livingCache.lastUpdateTime > 1000 * 60 * 5) {
-                launch {
-                    try {
-                        updateLivingList()
-                    } catch (e: Exception) {
-                        chatLogger.error("获取开播列表失败: $e")
-                    }
-                }
-            }
-            if (livingCache.uidList.isEmpty()) null else livingCache.uidList.random()
+            if (vtuberCache.uidList.isEmpty()) null else vtuberCache.uidList.random()
         }
 
     @Listener
     @FunctionSwitch("DDTool")
-    @Filter("{{operation,(今天|现在)}}(看|D|d)谁")
-    suspend fun OneBotMessageEvent.dd(@FilterValue("operation") operation: String) {
+    @Filter("(今天|现在)(看|D|d)谁")
+    suspend fun OneBotMessageEvent.dd() {
         // 5分钟调用冷却
-        if ((rateLimit[authorId.toString()] ?: 0) > System.currentTimeMillis()) return
+        if ((rateLimit[authorId.toString()] ?: 0) > System.currentTimeMillis()) {
+            directlySend("DD过于频繁，请稍后再试")
+            return
+        }
         rateLimit[authorId.toString()] = System.currentTimeMillis() + 1000 * 60 * 5
 
         // 只响应不匿名群消息
         if (this is OneBotGroupMessageEvent && this !is OneBotNormalGroupMessageEvent) return
 
-        // 今天看谁，或者本群存在强制单推
-        if (operation == "今天" || this is OneBotGroupMessageEvent && groupId.toString() in ddToolBind) {
-            // 今天看谁，随机抽取任意管人
-            val uid = if (this is OneBotGroupMessageEvent && groupId.toString() in ddToolBind) {
-                ddToolBind[groupId.toString()]
-            } else randomUser
+        // 随机抽取任意管人或者抽取指定单推管人
+        val uid = if (this is OneBotGroupMessageEvent && groupId.toString() in ddToolBind) {
+            ddToolBind[groupId.toString()]
+        } else randomUser
 
-            uid?.let {
-                getUserIntroByUID(uid)?.let { directlySend(it) } ?: directlySend("获取VTB信息失败")
-            } ?: directlySend("获取VTB信息失败")
-        } else {
-            // 现在看谁，随机抽取正在直播的管人
-            val roomID = randomLiving
-
-            // 随机抽取开播管人
-            roomID?.let {
-                getUserIntroByRoomID(roomID)?.let { directlySend(it) } ?: directlySend("获取直播间信息失败")
-            } ?: directlySend("当前没有VTB开播！")
-        }
+        uid?.let {
+            getUserIntroByUID(uid)?.let { directlySend(it) } ?: directlySend("获取管人信息失败")
+        } ?: directlySend("获取管人信息失败")
     }
 
     @Listener
@@ -166,7 +137,13 @@ class DDTool {
         }
     }
 
+    val userIntroCache = mutableMapOf<Long, Pair<Long, Messages>>()
+
     suspend fun getUserIntroByUID(uid: Long): Messages? {
+        userIntroCache[uid]?.let { (time, messages) ->
+            if (System.currentTimeMillis() - time < 5 * 60 * 1000) return messages
+        }
+
         try {
             // UID获取直播间
             // 用户信息
@@ -176,7 +153,12 @@ class DDTool {
             if (response.jsonObject["code"]!!.jsonPrimitive.int != 0) throw Exception(Json.encodeToString(response))
 
             val roomID = response.jsonObject["data"]!!.jsonObject["room_id"]!!.jsonPrimitive.long
-            return getUserIntroByRoomID(roomID)
+
+            val messages = getUserIntroByRoomID(roomID)?.also {
+                userIntroCache[uid] = System.currentTimeMillis() to it
+            }
+
+            return messages
         } catch (e: Exception) {
             chatLogger.error("获取用户信息(uid: $uid)失败: $e")
             return null
@@ -212,51 +194,32 @@ class DDTool {
                 |主页: https://space.bilibili.com/$uid
                 |直播间: https://live.bilibili.com/$liveRoom
             """.trimMargin()
-        }.toText(),
+        }.toText()
     )
 
     // 主播列表更新
 
-    var updatingVTBList = false
-    suspend fun updateVTBsList() {
-        if (updatingVTBList) return
-        updatingVTBList = true
+    var updatingVtuberList = false
+    suspend fun updateVtuberList() {
+
+        if (updatingVtuberList) return
+        updatingVtuberList = true
 
         val response = Json.parseToJsonElement(
             try {
                 client.get("https://cfapi.vtbs.moe/v1/vtbs").bodyAsText()
             } catch (e: Exception) {
                 chatLogger.error("获取管人列表失败: $e")
-                updatingVTBList = false
+                updatingVtuberList = false
                 return
             }
         )
 
-        VTBsCache.lastUpdateTime = System.currentTimeMillis()
-        VTBsCache.uidList = response.jsonArray.map { it.jsonObject["mid"]!!.jsonPrimitive.long }.toMutableSet()
-        saveConfig("DDTool", "vtbs.json", Json.encodeToString(VTBsCache), false)
+        vtuberCache.lastUpdateTime = System.currentTimeMillis()
+        vtuberCache.uidList = response.jsonArray.map { it.jsonObject["mid"]!!.jsonPrimitive.long }.toMutableSet()
+        saveConfig("DDTool", "vtbs.json", Json.encodeToString(vtuberCache), false)
 
-        updatingVTBList = false
+        updatingVtuberList = false
     }
 
-    // 直播列表更新
-    var updatingLivingList = false
-    suspend fun updateLivingList() {
-        if (updatingLivingList) return
-        updatingLivingList = true
-        val response = Json.parseToJsonElement(
-            try {
-                client.get("https://cfapi.vtbs.moe/v1/living").bodyAsText()
-            } catch (e: Exception) {
-                chatLogger.error("获取直播列表失败: $e")
-                updatingLivingList = false
-                return
-            }
-        )
-
-        livingCache.lastUpdateTime = System.currentTimeMillis()
-        livingCache.uidList = response.jsonArray.map { it.jsonPrimitive.long }.toMutableSet()
-
-        updatingLivingList = false
-    }
 }
