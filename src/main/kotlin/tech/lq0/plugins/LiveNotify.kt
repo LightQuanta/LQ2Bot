@@ -415,11 +415,16 @@ class LiveNotify @Autowired constructor(app: Application) {
                     limitedSubscribeList.joinToString { getUIDNameString(it) }
                 }"
             )
-            directlySend(
-                "已订阅以下${limitedSubscribeList.size}个主播: \n${
-                    limitedSubscribeList.joinToString { getUIDNameString(it) }
-                }"
-            )
+
+            if (limitedSubscribeList.isEmpty()) {
+                directlySend("已订阅上述全部主播！")
+            } else {
+                directlySend(
+                    "已订阅以下${limitedSubscribeList.size}个主播: \n${
+                        limitedSubscribeList.joinToString { getUIDNameString(it) }
+                    }"
+                )
+            }
         } else {
             val subscribed = liveUIDBind.filter { groupId.toString() in it.value }.keys
             val uidToRemove = uidList.intersect(subscribed)
