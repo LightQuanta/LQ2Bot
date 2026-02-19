@@ -472,30 +472,33 @@ class LiveNotify @Autowired constructor(app: Application) {
     @Filter("!live")
     suspend fun OneBotNormalGroupMessageEvent.currentlyLive() {
         val currentTime = System.currentTimeMillis() / 1000
-        val msg = liveUIDBind
+
+        val rooms = liveUIDBind
             .filter { groupId.toString() in it.value }
             .mapNotNull { liveStateCache[it.key].takeIf { state -> state?.liveStatus == 1 } }
             .ifEmpty {
                 directlySend("当前没有主播正在直播！")
                 return
-            }.joinToString("\n\n") {
-                val title = it.title
-                val room = "https://live.bilibili.com/${it.roomId}"
-                val name = it.filteredLiverName
-                val area = it.areaName
-
-                val config = liveGroupConfig[groupId.toString()] ?: LiveNotifyGroupConfig()
-
-                """
-                    $name 正在${area}分区直播，已开播${getTimeDiffStr(it.liveTime, currentTime, config.hazelTimeUnit)}
-                    $title
-                    $room
-                """.trimIndent()
             }
+
+        val msg = rooms.joinToString("\n\n") {
+            val title = it.title
+            val room = "https://live.bilibili.com/${it.roomId}"
+            val name = it.filteredLiverName
+            val area = it.areaName
+
+            val config = liveGroupConfig[groupId.toString()] ?: LiveNotifyGroupConfig()
+
+            """
+                $name 正在${area}分区直播，已开播${getTimeDiffStr(it.liveTime, currentTime, config.hazelTimeUnit)}
+                $title
+                $room
+            """.trimIndent()
+        }
 
         directlySend(
             """
-                |当前正在直播的主播： 
+                |当前正在直播的${rooms.size}个主播： 
                 |
                 |$msg
             """.trimMargin()
