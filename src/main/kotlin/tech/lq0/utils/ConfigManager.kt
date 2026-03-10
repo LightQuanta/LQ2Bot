@@ -1,6 +1,5 @@
 package tech.lq0.utils
 
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -20,20 +19,6 @@ private fun getOrCreateConfig(componentName: String, fileName: String): File {
  * @param fileName 文件名
  */
 fun readConfig(componentName: String, fileName: String) = getOrCreateConfig(componentName, fileName).readText()
-
-/**
- * 根据组件名称和文件名读取JSON配置文件
- * @param componentName 组件名称
- * @param fileName 文件名
- */
-inline fun <reified T> readJSONConfigAs(componentName: String, fileName: String): T? {
-    return try {
-        Json.decodeFromString<T>(readConfig(componentName, fileName))
-    } catch (e: Exception) {
-        println(("读取配置文件 $componentName/$fileName 出错: $e"))
-        null
-    }
-}
 
 /**
  * 根据组件名称和文件名保存配置文件

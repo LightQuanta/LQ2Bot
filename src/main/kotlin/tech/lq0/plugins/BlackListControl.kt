@@ -1,7 +1,5 @@
 package tech.lq0.plugins
 
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
 import love.forte.simbot.quantcat.common.annotations.Filter
@@ -11,7 +9,10 @@ import org.springframework.stereotype.Component
 import tech.lq0.interceptor.ChinesePunctuationReplace
 import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.interceptor.RequireBotAdmin
-import tech.lq0.utils.*
+import tech.lq0.utils.banLogger
+import tech.lq0.utils.botPermissionConfig
+import tech.lq0.utils.directlySend
+import tech.lq0.utils.groupViolationCount
 
 @Component
 class BlackListControl {
@@ -25,15 +26,16 @@ class BlackListControl {
         @FilterValue("list") banList: String,
     ) {
         // 禁止bot管理员拉黑bot管理员
-        val list = banList.split(Regex("\\D+")).filter { it !in botPermissionConfig.admin }
+        val config = botPermissionConfig.get()
+        val list = banList.split(Regex("\\D+")).filter { it !in config.admin }
         for (id in list) {
             if (operation == "ban") {
-                botPermissionConfig.memberBlackList += id
+                config.memberBlackList += id
             } else {
-                botPermissionConfig.memberBlackList -= id
+                config.memberBlackList -= id
             }
         }
-        saveConfig("BotConfig", "permission.json", Json.encodeToString(botPermissionConfig))
+        botPermissionConfig.save()
 
         directlySend(
             when (operation) {
@@ -64,15 +66,16 @@ class BlackListControl {
     ) {
         val list = banList.split(Regex("\\D+"))
         for (id in list) {
+            val config = botPermissionConfig.get()
             if (operation == "bangroup") {
-                botPermissionConfig.groupBlackList += id
+                config.groupBlackList += id
             } else {
-                botPermissionConfig.groupBlackList -= id
+                config.groupBlackList -= id
                 groupViolationCount -= id
-                saveConfig("SensitiveWords", "violation.json", Json.encodeToString(groupViolationCount))
+                groupViolationCount.save()
             }
         }
-        saveConfig("BotConfig", "permission.json", Json.encodeToString(botPermissionConfig))
+        botPermissionConfig.save()
 
         directlySend(
             when (operation) {
@@ -103,13 +106,14 @@ class BlackListControl {
     ) {
         val list = banList.split(Regex("\\D+"))
         for (id in list) {
+            val config = botPermissionConfig.get()
             if (operation == "enablebot") {
-                botPermissionConfig.groupDisabledList -= id
+                config.groupDisabledList -= id
             } else {
-                botPermissionConfig.groupDisabledList += id
+                config.groupDisabledList += id
             }
         }
-        saveConfig("BotConfig", "permission.json", Json.encodeToString(botPermissionConfig))
+        botPermissionConfig.save()
 
         directlySend(
             when (operation) {
@@ -136,13 +140,14 @@ class BlackListControl {
     @Filter("!{{operation,(enable|disable)bot}}")
     suspend fun OneBotGroupMessageEvent.disableGroup(@FilterValue("operation") operation: String) {
         val groupID = content().id.toString()
+        val config = botPermissionConfig.get()
         if (operation == "enablebot") {
-            botPermissionConfig.groupDisabledList -= groupID
+            config.groupDisabledList -= groupID
         } else {
-            botPermissionConfig.groupDisabledList += groupID
+            config.groupDisabledList += groupID
         }
 
-        saveConfig("BotConfig", "permission.json", Json.encodeToString(botPermissionConfig))
+        botPermissionConfig.save()
 
         directlySend(
             when (operation) {

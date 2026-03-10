@@ -42,14 +42,15 @@ data object GroupSwitchFactory : AnnotationEventInterceptorFactory {
             val event = eventListenerContext.event
 
             // 禁止黑名单用户使用功能
-            if (event is OneBotMessageEvent && event.authorId.toString() in botPermissionConfig.memberBlackList) {
+            val config = botPermissionConfig.get()
+            if (event is OneBotMessageEvent && event.authorId.toString() in config.memberBlackList) {
                 return EventResult.invalid()
             }
             // 私聊消息无需管理是否启用
             if (event !is OneBotGroupMessageEvent) return invoke()
 
             // 禁止黑名单群使用功能
-            if (event.groupId.toString() in botPermissionConfig.groupBlackList) {
+            if (event.groupId.toString() in config.groupBlackList) {
                 return EventResult.invalid()
             }
 
@@ -64,7 +65,7 @@ data object GroupSwitchFactory : AnnotationEventInterceptorFactory {
             val defaultEnabled = functionSwitch?.defaultEnabled ?: true
             val pluginID = functionSwitch?.value ?: return EventResult.invalid()
 
-            val groupConfig = groupPluginConfig[event.groupId.toString()]
+            val groupConfig = groupPluginConfig.get(event.groupId.toString())
             // 若禁用此插件，则不进行处理
             if (pluginID in (groupConfig?.disabled ?: setOf())) return EventResult.invalid()
 

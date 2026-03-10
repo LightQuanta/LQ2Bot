@@ -81,7 +81,7 @@ class Mute {
     suspend fun OneBotNormalGroupMessageEvent.getFirstAtOrAuthor(): OneBotMember? {
         val messages = messageContent.messages.toList()
         val id = if (
-            (author().role != OneBotMemberRole.MEMBER || authorId.toString() in botPermissionConfig.admin)
+            (author().role != OneBotMemberRole.MEMBER || authorId.toString() in botPermissionConfig.get().admin)
             && messages.filterIsInstance<At>().isNotEmpty()
         ) {
             // 允许管理员或群主借刀杀人

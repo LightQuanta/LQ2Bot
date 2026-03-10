@@ -1,7 +1,5 @@
 package tech.lq0.utils
 
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import love.forte.simbot.component.onebot.v11.core.actor.OneBotGroup
 import net.sourceforge.pinyin4j.PinyinHelper
 import net.sourceforge.pinyin4j.format.HanyuPinyinCaseType
@@ -9,9 +7,7 @@ import net.sourceforge.pinyin4j.format.HanyuPinyinOutputFormat
 import net.sourceforge.pinyin4j.format.HanyuPinyinToneType
 import net.sourceforge.pinyin4j.format.HanyuPinyinVCharType
 
-val groupViolationCount by lazy {
-    readJSONConfigAs<MutableMap<String, Int>>("SensitiveWords", "violation.json") ?: mutableMapOf()
-}
+val groupViolationCount = createGroupConfig<Int>("SensitiveWords", "violation.json", false)
 
 val sensitiveWordsRegex by lazy {
     readConfig("SensitiveWords", "sensitivewords.txt")
@@ -32,24 +28,25 @@ val pinyinFormat = HanyuPinyinOutputFormat().apply {
  * @param group （可选）群号，累计三次违规自动拉黑对应群聊
  */
 suspend fun banMember(member: String, group: OneBotGroup?) {
-    if (member !in botPermissionConfig.admin) {
-        botPermissionConfig.memberBlackList.add(member)
+    val config = botPermissionConfig.get()
+    if (member !in config.admin) {
+        config.memberBlackList.add(member)
         banLogger.info("已拉黑用户QQ: $member")
     }
 
     if (group != null) {
         val count = (groupViolationCount[group.id.toString()] ?: 0) + 1
         groupViolationCount[group.id.toString()] = count
-        saveConfig("SensitiveWords", "violation.json", Json.encodeToString(groupViolationCount), false)
+        groupViolationCount.save()
         banLogger.info("群 $group 已累计触发敏感词 $count 次")
 
         if (count >= 3) {
-            botPermissionConfig.groupBlackList += group.id.toString()
+            config.groupBlackList += group.id.toString()
             group.send("该群由于多次触发敏感词已被Bot永久拉黑，请联系Bot管理员进行进一步操作")
             banLogger.info("群 $group 已被永久拉黑")
         }
     }
-    saveConfig("BotConfig", "permission.json", Json.encodeToString(botPermissionConfig))
+    botPermissionConfig.save()
 }
 
 fun String?.isSensitive(): Boolean {

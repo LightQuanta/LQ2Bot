@@ -29,17 +29,16 @@ import java.net.URL
 @Component
 class DDTool {
     val client = HttpClient()
-    val json = Json { ignoreUnknownKeys = true }
 
     val rateLimit = mutableMapOf<String, Long>()
     val randomUser
         get() = runBlocking {
-            if (vtuberCache.uidList.isEmpty()) {
+            if (vtuberCache.get().uidList.isEmpty()) {
                 updateVtuberList()
             }
 
             // 缓存24小时
-            if (System.currentTimeMillis() - vtuberCache.lastUpdateTime > 1000 * 60 * 60 * 24) {
+            if (System.currentTimeMillis() - vtuberCache.get().lastUpdateTime > 1000 * 60 * 60 * 24) {
                 launch {
                     try {
                         updateVtuberList()
@@ -48,7 +47,7 @@ class DDTool {
                     }
                 }
             }
-            if (vtuberCache.uidList.isEmpty()) null else vtuberCache.uidList.random()
+            if (vtuberCache.get().uidList.isEmpty()) null else vtuberCache.get().uidList.random()
         }
 
     @Listener
@@ -83,7 +82,7 @@ class DDTool {
     suspend fun OneBotGroupMessageEvent.singlePush(@FilterValue("operation") operation: String) {
         if (operation == "reset") {
             ddToolBind -= groupId.toString()
-            saveConfig("DDTool", "bind.json", Json.encodeToString(ddToolBind))
+            ddToolBind.save()
             directlySend("已删除指定抽取用户！")
             return
         }
@@ -94,7 +93,7 @@ class DDTool {
         }
 
         ddToolBind[groupId.toString()] = uid
-        saveConfig("DDTool", "bind.json", Json.encodeToString(ddToolBind))
+        ddToolBind.save()
         directlySend("已设置指定抽取用户: ${getUIDNameString(uid.toString())}")
     }
 
@@ -125,9 +124,9 @@ class DDTool {
             val sign = data.jsonObject["sign"]!!.jsonPrimitive.content
             val fans = data.jsonObject["fans"]!!.jsonPrimitive.int
 
-            if (UIDNameCache[uid.toString()] != name && !name.isSensitive()) {
-                UIDNameCache[uid.toString()] = name
-                saveConfig("Cache", "UID2Name.json", Json.encodeToString(UIDNameCache), false)
+            if (UIDNameCache.get()[uid.toString()] != name && !name.isSensitive()) {
+                UIDNameCache.get()[uid.toString()] = name
+                UIDNameCache.save()
             }
 
             return generateUserIntro(name, uid.toString(), roomID.toString(), title, sign, face, fans, isLiving)
@@ -215,9 +214,9 @@ class DDTool {
             }
         )
 
-        vtuberCache.lastUpdateTime = System.currentTimeMillis()
-        vtuberCache.uidList = response.jsonArray.map { it.jsonObject["mid"]!!.jsonPrimitive.long }.toMutableSet()
-        saveConfig("DDTool", "vtbs.json", Json.encodeToString(vtuberCache), false)
+        vtuberCache.get().lastUpdateTime = System.currentTimeMillis()
+        vtuberCache.get().uidList = response.jsonArray.map { it.jsonObject["mid"]!!.jsonPrimitive.long }.toMutableSet()
+        vtuberCache.save()
 
         updatingVtuberList = false
     }

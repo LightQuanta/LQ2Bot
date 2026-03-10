@@ -67,7 +67,7 @@ class Meme {
         if (text.isNullOrEmpty()) return
 
         val groupID = if (this is OneBotGroupMessageEvent) groupId.toString() else null
-        memeConfig.memes.filter { it.availableTo(groupID) }.firstOrNull {
+        memeConfig.get().memes.filter { it.availableTo(groupID) }.firstOrNull {
             listOf(it.name, *it.alias.toTypedArray())
                 .any { keyword ->
                     when (it.detectType) {
@@ -207,7 +207,8 @@ class Meme {
             }
         }
 
-        if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
+        val config = memeConfig.get()
+        if (authorId.toString() in botPermissionConfig.get().admin || authorId.toString() in config.admin) {
             val groupID = if (this is OneBotNormalGroupMessageEvent) groupId.toString() else null
 
             val isUUID = try {
@@ -228,7 +229,7 @@ class Meme {
                         name = keyword,
                         detectType = detectType,
                         whiteListGroups = mutableSetOf(groupID!!)
-                    ).also { memeConfig.memes += it }
+                    ).also { config.memes += it }
                 }
             } else {
                 findMemeInstance(keyword, false)
@@ -236,14 +237,14 @@ class Meme {
                         directlySend("该Meme不存在！")
                         return
                     } else {
-                        SingleMeme(name = keyword, detectType = detectType).also { memeConfig.memes += it }
+                        SingleMeme(name = keyword, detectType = detectType).also { config.memes += it }
                     }
             }
 
             meme.replyContent.addAll(replies)
-            memeConfig.lastUpdateTime = Instant.now().epochSecond
+            config.lastUpdateTime = Instant.now().epochSecond
 
-            saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
+            memeConfig.save()
             logUpdate()
             directlySend("已更新${meme.name}(id: ${meme.id})")
         } else {
@@ -259,12 +260,13 @@ class Meme {
         @FilterValue("alias") alias: String,
     ) {
         val aliases = alias.split("|").filter { it.isNotEmpty() }.map { it.trim().lowercase() }
-        if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
+        val config = memeConfig.get()
+        if (authorId.toString() in botPermissionConfig.get().admin || authorId.toString() in config.admin) {
             val meme = findMemeInstance(keyword) ?: return
             meme.alias.addAll(aliases)
 
-            memeConfig.lastUpdateTime = Instant.now().epochSecond
-            saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
+            config.lastUpdateTime = Instant.now().epochSecond
+            memeConfig.save()
             logUpdate()
             directlySend("已更新${meme.name}(id: ${meme.id})")
         } else {
@@ -281,7 +283,8 @@ class Meme {
         @FilterValue("args") args: String,
     ) {
         if (args.isBlank()) return
-        if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
+        val config = memeConfig.get()
+        if (authorId.toString() in botPermissionConfig.get().admin || authorId.toString() in config.admin) {
             val meme = findMemeInstance(keyword) ?: return
 
             when (operation) {
@@ -329,8 +332,8 @@ class Meme {
                 }
             }
 
-            memeConfig.lastUpdateTime = Instant.now().epochSecond
-            saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
+            config.lastUpdateTime = Instant.now().epochSecond
+            memeConfig.save()
             logUpdate()
             directlySend("已更新${meme.name}(id: ${meme.id})")
         } else {
@@ -367,19 +370,20 @@ class Meme {
             return
         }
 
-        if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
+        val config = memeConfig.get()
+        if (authorId.toString() in botPermissionConfig.get().admin || authorId.toString() in config.admin) {
             if (replies.isNotEmpty()) {
                 val removed = meme.replyContent intersect replies
                 meme.replyContent -= replies
 
                 directlySend("已移除${meme.name}(id: ${meme.id})中的以下${removed.size}个回复:\n${removed.joinToString()}")
             } else {
-                memeConfig.memes -= meme
+                config.memes -= meme
                 directlySend("已移除${meme.name}(id: ${meme.id})")
             }
 
-            memeConfig.lastUpdateTime = Instant.now().epochSecond
-            saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
+            config.lastUpdateTime = Instant.now().epochSecond
+            memeConfig.save()
             logUpdate()
         } else {
             notifyAdmin()
@@ -409,8 +413,8 @@ class Meme {
             directlySend("已在该群禁用 ${meme.name}(id: ${meme.id})")
         }
 
-        memeConfig.lastUpdateTime = Instant.now().epochSecond
-        saveConfig("Meme", "meme.json", prettyJsonFormatter.encodeToString(memeConfig))
+        memeConfig.get().lastUpdateTime = Instant.now().epochSecond
+        memeConfig.save()
         logUpdate()
     }
 
@@ -427,7 +431,8 @@ class Meme {
         if (action == "getmeme") {
             directlySend(meme.replyContent.joinToString("|"))
         } else {
-            val isAdmin = authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin
+            val isAdmin =
+                authorId.toString() in botPermissionConfig.get().admin || authorId.toString() in memeConfig.get().admin
             directlySend(
                 prettyJsonFormatter.encodeToString(
                     if (isAdmin) {
@@ -466,7 +471,7 @@ class Meme {
         val content = query.substringAfter("#", "").trim()
 
         val memes = findMemeInstances(keyword, content.isEmpty()) {
-            if (authorId.toString() in botPermissionConfig.admin || authorId.toString() in memeConfig.admin) {
+            if (authorId.toString() in botPermissionConfig.get().admin || authorId.toString() in memeConfig.get().admin) {
                 // 对管理员始终返回所有Meme
                 true
             } else if (this@findMeme is OneBotNormalGroupMessageEvent) {
@@ -510,7 +515,7 @@ class Meme {
         }
         memeLogger.info("来自$groupInfo$name($authorId)的建议: ${messageContent.plainText}")
 
-        (memeConfig.notificationReceiver - authorId.toString())
+        (memeConfig.get().notificationReceiver - authorId.toString())
             .forEach {
                 bot.contactRelation.contact(it.ID)
                     ?.send(
@@ -544,7 +549,7 @@ class Meme {
         ambiguousMatch: Boolean = false,
         filter: SingleMeme.() -> Boolean = { true }
     ): List<SingleMeme> =
-        memeConfig.memes.filter(filter).filter {
+        memeConfig.get().memes.filter(filter).filter {
             try {
                 UUID.fromString(keyword)
                 return@filter keyword == it.id

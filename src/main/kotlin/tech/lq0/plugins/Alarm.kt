@@ -17,7 +17,7 @@ class Alarm {
     @FunctionSwitch("Alarm")
     @Filter("警钟(长鸣|敲烂)?{{id,(\\d+)?}}")
     suspend fun OneBotGroupMessageEvent.alarm(@FilterValue("id") id: String) {
-        val alarmList = alarms[groupId.toString()]
+        val alarmList = alarms.get(this)
         if (alarmList.isNullOrEmpty()) {
             directlySend("本群还没有警钟！")
             return
@@ -42,7 +42,7 @@ class Alarm {
     @FunctionSwitch("Alarm")
     @Filter("编钟")
     suspend fun OneBotGroupMessageEvent.allAlarm() {
-        val alarmList = alarms[groupId.toString()]
+        val alarmList = alarms.get(this)
         if (alarmList.isNullOrEmpty()) {
             directlySend("本群还没有警钟！")
             return

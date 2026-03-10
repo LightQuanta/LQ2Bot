@@ -27,7 +27,7 @@ data object RequireBotAdminFactory : AnnotationEventInterceptorFactory {
         override suspend fun EventInterceptor.Context.intercept(): EventResult {
             val event = eventListenerContext.event
 
-            return if (event is OneBotMessageEvent && event.authorId.toString() in botPermissionConfig.admin) {
+            return if (event is OneBotMessageEvent && event.authorId.toString() in botPermissionConfig.get().admin) {
                 invoke()
             } else {
                 EventResult.invalid()

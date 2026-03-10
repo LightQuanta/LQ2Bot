@@ -1,8 +1,69 @@
 package tech.lq0.utils
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
+import love.forte.simbot.event.ChatGroupEvent
 import tech.lq0.plugins.RoomInfo
 import java.util.*
+
+open class BotConfig<T : Any>(
+    val serializer: KSerializer<T>,
+    var value: T,
+    val componentName: String,
+    val fileName: String,
+    val autoBackup: Boolean = true,
+) {
+    init {
+        try {
+            @Suppress("unchecked_cast")
+            value = Json.decodeFromString(serializer, readConfig(componentName, fileName))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun get() = value
+
+    fun save() {
+        saveConfig(componentName, fileName, Json.encodeToString(serializer, value), autoBackup)
+    }
+}
+
+@Suppress("unchecked_cast")
+class GroupConfig<T : MutableMap<String, V>, V : Any>(
+    serializer: KSerializer<T>, componentName: String, fileName: String, autoBackup: Boolean = true
+) : BotConfig<T>(serializer, mutableMapOf<String, V>() as T, componentName, fileName, autoBackup) {
+
+    suspend fun get(event: ChatGroupEvent) = get(event.content().id.toString())
+    suspend fun getOrPut(event: ChatGroupEvent, config: () -> V) = getOrPut(event.content().id.toString(), config)
+    operator fun get(id: String) = value[id]
+    fun getOrPut(id: String, config: () -> V) = value.getOrPut(id, config)
+
+    operator fun set(id: String, value: V) {
+        this.value[id] = value
+    }
+
+    operator fun contains(id: String) = value.contains(id)
+
+    operator fun minusAssign(id: String) {
+        value.remove(id)
+    }
+}
+
+inline fun <reified T : Any> createGroupConfig(
+    componentName: String,
+    fileName: String,
+    autoBackup: Boolean = true
+) = GroupConfig<MutableMap<String, T>, T>(serializer(), componentName, fileName, autoBackup)
+
+inline fun <reified T : Any> createBotConfig(
+    defaultValue: T,
+    componentName: String,
+    fileName: String,
+    autoBackup: Boolean = true
+) = BotConfig(serializer(), defaultValue, componentName, fileName, autoBackup)
 
 // PluginSwitch部分
 
@@ -12,9 +73,7 @@ data class PluginConfig(
     val disabled: MutableSet<String> = mutableSetOf(),
 )
 
-val groupPluginConfig by lazy {
-    readJSONConfigAs<MutableMap<String, PluginConfig>>("PluginSwitch", "config.json") ?: mutableMapOf()
-}
+val groupPluginConfig = createGroupConfig<PluginConfig>("PluginSwitch", "config.json")
 
 // BotConfig部分
 
@@ -26,9 +85,7 @@ data class UserPermissionConfig(
     val memberBlackList: MutableSet<String> = mutableSetOf(),
 )
 
-val botPermissionConfig by lazy {
-    readJSONConfigAs<UserPermissionConfig>("BotConfig", "permission.json") ?: UserPermissionConfig()
-}
+val botPermissionConfig = createBotConfig(UserPermissionConfig(), "BotConfig", "permission.json")
 
 // Meme部分
 
@@ -65,9 +122,7 @@ data class Meme(
     val memes: MutableList<SingleMeme> = mutableListOf(),
 )
 
-val memeConfig by lazy {
-    readJSONConfigAs<Meme>("Meme", "meme.json") ?: Meme()
-}
+val memeConfig = createBotConfig(Meme(), "Meme", "meme.json")
 
 // LiveNotify部分
 
@@ -75,17 +130,13 @@ val memeConfig by lazy {
  * 订阅主播直播间状态缓存
  * 主播UID -> 上次直播间状态
  */
-val liveStateCache by lazy {
-    readJSONConfigAs<MutableMap<String, RoomInfo>>("LiveNotify", "liveStateCache.json") ?: mutableMapOf()
-}
+val liveStateCache = createBotConfig(mutableMapOf<String, RoomInfo>(), "LiveNotify", "liveStateCache.json", false)
 
 /**
  * 开播通知订阅信息
  * 订阅主播UID -> Set<订阅群群号>
  */
-val liveUIDBind by lazy {
-    readJSONConfigAs<MutableMap<String, MutableSet<String>>>("LiveNotify", "liveUIDBind.json") ?: mutableMapOf()
-}
+val liveUIDBind = createBotConfig(mutableMapOf<String, MutableSet<String>>(), "LiveNotify", "liveUIDBind.json")
 
 @Serializable
 data class LiveNotifyGroupConfig(
@@ -120,27 +171,19 @@ data class LiveNotifyGroupConfig(
 /**
  * 每个群的直播推送配置
  */
-val liveGroupConfig by lazy {
-    readJSONConfigAs<MutableMap<String, LiveNotifyGroupConfig>>("LiveNotify", "liveGroupConfig.json") ?: mutableMapOf()
-}
+val liveGroupConfig = createGroupConfig<LiveNotifyGroupConfig>("LiveNotify", "liveGroupConfig.json")
 
 /**
  * 疑似存在违规名称和直播间标题的主播的UID
  */
-val sensitiveLivers by lazy {
-    readJSONConfigAs<MutableSet<String>>("LiveNotify", "sensitiveLivers.json") ?: mutableSetOf()
-}
+val sensitiveLivers = createBotConfig(mutableSetOf<String>(), "LiveNotify", "sensitiveLivers.json")
 
 /**
  * 主播UID -> 主播名称
  */
-val UIDNameCache by lazy {
-    readJSONConfigAs<MutableMap<String, String>>("Cache", "UID2Name.json") ?: mutableMapOf()
-}
+val UIDNameCache = createBotConfig(mutableMapOf<String, String>(), "Cache", "UID2Name.json", false)
 
-val alarms by lazy {
-    readJSONConfigAs<MutableMap<String, MutableSet<String>>>("Alarm", "alarms.json") ?: mutableMapOf()
-}
+val alarms = createGroupConfig<MutableSet<String>>("Alarm", "alarms.json")
 
 @Serializable
 data class VtuberUIDCache(
@@ -149,11 +192,7 @@ data class VtuberUIDCache(
 )
 
 // 管人列表
-val vtuberCache by lazy {
-    readJSONConfigAs<VtuberUIDCache>("DDTool", "vtbs.json") ?: VtuberUIDCache()
-}
+val vtuberCache = createBotConfig(VtuberUIDCache(), "DDTool", "vtbs.json", false)
 
 // 群强制单推信息
-val ddToolBind by lazy {
-    readJSONConfigAs<MutableMap<String, Long>>("DDTool", "bind.json") ?: mutableMapOf()
-}
+val ddToolBind = createGroupConfig<Long>("DDTool", "bind.json")

@@ -29,7 +29,7 @@ data object RequireAdminFactory : AnnotationEventInterceptorFactory {
             val event = eventListenerContext.event
 
             return if (
-                event is OneBotMessageEvent && event.authorId.toString() in botPermissionConfig.admin
+                event is OneBotMessageEvent && event.authorId.toString() in botPermissionConfig.get().admin
                 || event is OneBotNormalGroupMessageEvent && event.author().role?.isAdmin == true
             ) {
                 invoke()

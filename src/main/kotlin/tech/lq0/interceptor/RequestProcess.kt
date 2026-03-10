@@ -1,7 +1,5 @@
 package tech.lq0.interceptor
 
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import love.forte.simbot.component.onebot.v11.core.event.notice.OneBotGroupMemberDecreaseEvent
 import love.forte.simbot.component.onebot.v11.core.event.request.OneBotFriendRequestEvent
 import love.forte.simbot.component.onebot.v11.core.event.request.OneBotGroupRequestEvent
@@ -22,7 +20,7 @@ class RequestProcess {
     @Listener
     suspend fun OneBotFriendRequestEvent.add() {
         // 拒绝黑名单用户的请求
-        if (requesterId.toString() in botPermissionConfig.memberBlackList) {
+        if (requesterId.toString() in botPermissionConfig.get().memberBlackList) {
             chatLogger.info("已拒绝 $requesterId 发起的好友请求(成员位于黑名单)")
             reject()
         } else {
@@ -39,13 +37,14 @@ class RequestProcess {
         // 只处理邀请加群请求
         if (type == RequestEvent.Type.PASSIVE) {
             // 禁止黑名单用户进行任何操作
-            if (requesterId.toString() in botPermissionConfig.memberBlackList) {
+            val config = botPermissionConfig.get()
+            if (requesterId.toString() in config.memberBlackList) {
                 chatLogger.info("已拒绝 $requesterId(${requester().name}) 发起的邀请加群请求(成员位于黑名单): ${content().id}(${content().name})")
                 return
             }
 
             // 拒绝加入黑名单群
-            if (content().id.toString() in botPermissionConfig.groupBlackList) {
+            if (content().id.toString() in config.groupBlackList) {
                 chatLogger.info("已拒绝 $requesterId(${requester().name}) 发起的邀请加群请求(群位于黑名单): ${content().id}(${content().name})")
                 reject()
             } else {
@@ -67,18 +66,19 @@ class RequestProcess {
         // bot被踢出群时，清空该群的相关配置文件
 
         // 清除开播通知订阅信息
-        val uidList = liveUIDBind.filter { group in it.value }.onEach {
+        val uidList = liveUIDBind.get().filter { group in it.value }.onEach {
             it.value -= group
-            if (it.value.isEmpty()) liveUIDBind -= it.key
+            if (it.value.isEmpty()) liveUIDBind.get() -= it.key
         }
         if (uidList.isNotEmpty()) {
-            saveConfig("LiveNotify", "liveUIDBind.json", Json.encodeToString(liveUIDBind))
+            liveUIDBind.save()
         }
 
         // 清除开播通知设置
-        if (group in liveGroupConfig) {
-            liveGroupConfig -= group
-            saveConfig("LiveNotify", "liveGroupConfig.json", Json.encodeToString(liveGroupConfig))
+        val config = liveGroupConfig.get()
+        if (group in config) {
+            config -= group
+            liveGroupConfig.save()
         }
 
         liveLogger.info(

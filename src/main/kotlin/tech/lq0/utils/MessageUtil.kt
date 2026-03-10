@@ -27,7 +27,8 @@ const val LONG_MESSAGE_LENGTH = 500
  */
 suspend fun OneBotMessageEvent.directlySend(messages: Messages, foldMessageThreshold: Int = LONG_MESSAGE_LENGTH) {
     // 防止意外响应黑名单成员
-    if (authorId.toString() in botPermissionConfig.memberBlackList) return
+    val config = botPermissionConfig.get()
+    if (authorId.toString() in config.memberBlackList) return
     // 为用户添加功能调用限流
     addMemberRateLimit(authorId.toString())
 
@@ -38,8 +39,8 @@ suspend fun OneBotMessageEvent.directlySend(messages: Messages, foldMessageThres
         is OneBotGroupMessageEvent -> {
             val content = content()
             // 防止意外响应黑名单群
-            if (content.id.toString() in botPermissionConfig.groupDisabledList
-                || content.id.toString() in botPermissionConfig.groupBlackList
+            if (content.id.toString() in config.groupDisabledList
+                || content.id.toString() in config.groupBlackList
             ) return
 
             if (foldLongMessage) {
@@ -54,8 +55,8 @@ suspend fun OneBotMessageEvent.directlySend(messages: Messages, foldMessageThres
         is OneBotGroupPrivateMessageEvent -> {
             val source = source()
             // 防止意外响应黑名单群
-            if (source.id.toString() in botPermissionConfig.groupDisabledList
-                || source.id.toString() in botPermissionConfig.groupBlackList
+            if (source.id.toString() in config.groupDisabledList
+                || source.id.toString() in config.groupBlackList
             ) return
 
             val content = content()
@@ -93,7 +94,8 @@ suspend fun OneBotMessageEvent.replyAndLog(message: String) =
 
 suspend fun OneBotMessageEvent.replyAndLog(messages: Messages) {
     // 防止意外响应黑名单成员
-    if (authorId.toString() in botPermissionConfig.memberBlackList) return
+    val config = botPermissionConfig.get()
+    if (authorId.toString() in config.memberBlackList) return
     // 为用户添加功能调用限流
     addMemberRateLimit(authorId.toString())
 
@@ -101,8 +103,8 @@ suspend fun OneBotMessageEvent.replyAndLog(messages: Messages) {
         is OneBotGroupMessageEvent -> {
             val content = content()
             // 防止意外响应黑名单群
-            if (content.id.toString() in botPermissionConfig.groupDisabledList
-                || content.id.toString() in botPermissionConfig.groupBlackList
+            if (content.id.toString() in config.groupDisabledList
+                || content.id.toString() in config.groupBlackList
             ) return
 
             chatLogger.info("bot <- 群 ${content.name}(${content.id}): ${messages.toText()}")
@@ -111,8 +113,8 @@ suspend fun OneBotMessageEvent.replyAndLog(messages: Messages) {
         is OneBotGroupPrivateMessageEvent -> {
             val source = source()
             // 防止意外响应黑名单群
-            if (source.id.toString() in botPermissionConfig.groupDisabledList
-                || source.id.toString() in botPermissionConfig.groupBlackList
+            if (source.id.toString() in config.groupDisabledList
+                || source.id.toString() in config.groupBlackList
             ) return
 
             chatLogger.info("bot <- ${source.name}(${source.id}) ${content().nick ?: content().name}($authorId): ${messages.toText()}")

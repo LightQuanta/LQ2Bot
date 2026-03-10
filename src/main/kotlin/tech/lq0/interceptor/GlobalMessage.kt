@@ -20,7 +20,7 @@ val memberRateLimit: MutableMap<String, Pair<Long, Int>> = mutableMapOf()
  */
 fun addMemberRateLimit(memberId: String) {
     // 不限制Bot管理员
-    if (memberId in botPermissionConfig.admin) return
+    if (memberId in botPermissionConfig.get().admin) return
 
     val currentTimeStamp = System.currentTimeMillis()
     if (memberId in memberRateLimit) {
@@ -42,22 +42,23 @@ fun addMemberRateLimit(memberId: String) {
 @Component
 class GlobalMessage @Autowired constructor(app: Application) {
     init {
+        val config = botPermissionConfig.get()
         app.eventDispatcher.register {
             val event = this.event
             if (event !is OneBotMessageEvent) return@register EventResult.empty()
 
             // 不拦截Bot管理员的消息
-            if (event.authorId.toString() in botPermissionConfig.admin) {
+            if (event.authorId.toString() in config.admin) {
                 return@register EventResult.empty()
             }
 
             // 忽视被拉黑用户和群聊的任何消息
-            if (event.authorId.toString() in botPermissionConfig.memberBlackList) {
+            if (event.authorId.toString() in config.memberBlackList) {
                 return@register EventResult.empty(true)
             }
             if (
                 event is OneBotGroupMessageEvent
-                && event.groupId.toString() in botPermissionConfig.groupBlackList
+                && event.groupId.toString() in config.groupBlackList
             ) return@register EventResult.empty(true)
 
             // 发言限流
