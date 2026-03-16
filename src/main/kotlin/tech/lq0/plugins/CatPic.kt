@@ -21,42 +21,43 @@ import tech.lq0.utils.chatLogger
 import tech.lq0.utils.directlySend
 import java.net.URL
 
+private val client = HttpClient()
+private val pictureLinksCache = mutableListOf<String>()
+
 @Component
 class CatPic {
-    val client = HttpClient()
-    val pictureLinksCache = mutableListOf<String>()
-
     @Listener
     @FunctionSwitch("CatPic")
     @Filter("来点(猫(猫|图)|哈基米)")
-    suspend fun OneBotMessageEvent.cat() = coroutineScope {
-        if (pictureLinksCache.size == 0) {
-            // 没有图片缓存时获取10张
-            if (!updatePictureLinksCache()) {
-                directlySend("获取猫图出错！")
-                return@coroutineScope
-            }
-        } else if (pictureLinksCache.size <= 2) {
-            // 图片缓存数量不足时尝试发起一次异步获取，不处理获取失败的情况
-            launch { updatePictureLinksCache() }
-        }
+    suspend fun OneBotMessageEvent.cat() = sendCatPic()
+}
 
-        directlySend(messagesOf(URL(pictureLinksCache.removeAt(0)).toResource().toOfflineImage()))
+suspend fun OneBotMessageEvent.sendCatPic() = coroutineScope {
+    if (pictureLinksCache.isEmpty()) {
+        // 没有图片缓存时获取10张
+        if (!updatePictureLinksCache()) {
+            directlySend("获取猫图出错！")
+            return@coroutineScope
+        }
+    } else if (pictureLinksCache.size <= 2) {
+        // 图片缓存数量不足时尝试发起一次异步获取，不处理获取失败的情况
+        launch { updatePictureLinksCache() }
     }
 
-    suspend fun updatePictureLinksCache(): Boolean {
-        try {
-            val resp = Json.parseToJsonElement(
-                client.get("https://api.thecatapi.com/v1/images/search?limit=10").bodyAsText()
-            )
-            val count = resp.jsonArray.size
-            pictureLinksCache.addAll(resp.jsonArray.map { it.jsonObject["url"]!!.jsonPrimitive.content })
-            chatLogger.info("已更新 $count 张猫图缓存，累计缓存数量: ${pictureLinksCache.size}")
-            return true
-        } catch (e: Exception) {
-            chatLogger.error("更新猫图缓存失败: $e")
-            return false
-        }
-    }
+    directlySend(messagesOf(URL(pictureLinksCache.removeAt(0)).toResource().toOfflineImage()))
+}
 
+private suspend fun updatePictureLinksCache(): Boolean {
+    try {
+        val resp = Json.parseToJsonElement(
+            client.get("https://api.thecatapi.com/v1/images/search?limit=10").bodyAsText()
+        )
+        val count = resp.jsonArray.size
+        pictureLinksCache.addAll(resp.jsonArray.map { it.jsonObject["url"]!!.jsonPrimitive.content })
+        chatLogger.info("已更新 $count 张猫图缓存，累计缓存数量: ${pictureLinksCache.size}")
+        return true
+    } catch (e: Exception) {
+        chatLogger.error("更新猫图缓存失败: $e")
+        return false
+    }
 }

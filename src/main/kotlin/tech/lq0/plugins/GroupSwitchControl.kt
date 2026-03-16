@@ -1,6 +1,5 @@
 package tech.lq0.plugins
 
-import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
 import love.forte.simbot.quantcat.common.annotations.Filter
 import love.forte.simbot.quantcat.common.annotations.FilterValue
@@ -62,7 +61,7 @@ class GroupSwitchControl {
     @Listener
     @ChinesePunctuationReplace
     @Filter("!plugins")
-    suspend fun OneBotGroupMessageEvent.list() {
+    suspend fun OneBotNormalGroupMessageEvent.list() {
         val config = groupPluginConfig.get(this) ?: PluginConfig()
 
         directlySend(

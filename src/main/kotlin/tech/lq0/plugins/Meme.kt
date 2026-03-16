@@ -1,6 +1,5 @@
 package tech.lq0.plugins
 
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import love.forte.simbot.common.id.StringID.Companion.ID
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotFriendMessageEvent

@@ -133,7 +133,9 @@ suspend fun OneBotMessageEvent.replyAndLog(messages: Messages) {
 /**
  * 将消息转换为文本
  */
-fun Messages.toText() = toList().joinToString("") {
+fun Messages.toText() = toList().toText()
+
+fun List<Message.Element>.toText() = joinToString("") {
     when (it) {
         is At -> "[@${it.target}]"
         is AtAll -> "[@全体成员]"

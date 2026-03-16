@@ -1,6 +1,6 @@
 package tech.lq0.plugins
 
-import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
+import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
 import love.forte.simbot.quantcat.common.annotations.Filter
 import love.forte.simbot.quantcat.common.annotations.FilterValue
 import love.forte.simbot.quantcat.common.annotations.Listener
@@ -16,7 +16,7 @@ class Alarm {
     @Listener
     @FunctionSwitch("Alarm")
     @Filter("警钟(长鸣|敲烂)?{{id,(\\d+)?}}")
-    suspend fun OneBotGroupMessageEvent.alarm(@FilterValue("id") id: String) {
+    suspend fun OneBotNormalGroupMessageEvent.alarm(@FilterValue("id") id: String) {
         val alarmList = alarms.get(this)
         if (alarmList.isNullOrEmpty()) {
             directlySend("本群还没有警钟！")
@@ -35,13 +35,13 @@ class Alarm {
         val alarmTimestamp = alarmMessage.substringBefore('|').toLong() * 1_000_000
         val message = alarmMessage.substringAfter('|')
 
-        directlySend(message.replace("\${time}", getTimeDiffStr(alarmTimestamp, nanoTimestamp)))
+        directlySend(message.replace($$"${time}", getTimeDiffStr(alarmTimestamp, nanoTimestamp)))
     }
 
     @Listener
     @FunctionSwitch("Alarm")
     @Filter("编钟")
-    suspend fun OneBotGroupMessageEvent.allAlarm() {
+    suspend fun OneBotNormalGroupMessageEvent.allAlarm() {
         val alarmList = alarms.get(this)
         if (alarmList.isNullOrEmpty()) {
             directlySend("本群还没有警钟！")

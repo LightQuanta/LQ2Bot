@@ -1,7 +1,7 @@
 package tech.lq0.plugins
 
-import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
+import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
 import love.forte.simbot.quantcat.common.annotations.Filter
 import love.forte.simbot.quantcat.common.annotations.FilterValue
 import love.forte.simbot.quantcat.common.annotations.Listener
@@ -138,7 +138,7 @@ class BlackListControl {
     @ChinesePunctuationReplace
     @RequireAdmin
     @Filter("!{{operation,(enable|disable)bot}}")
-    suspend fun OneBotGroupMessageEvent.disableGroup(@FilterValue("operation") operation: String) {
+    suspend fun OneBotNormalGroupMessageEvent.disableGroup(@FilterValue("operation") operation: String) {
         val groupID = content().id.toString()
         val config = botPermissionConfig.get()
         if (operation == "enablebot") {

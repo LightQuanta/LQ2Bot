@@ -21,10 +21,15 @@ repositories {
 dependencies {
     implementation(libs.spring.boot.starter)
     implementation(libs.kotlin.reflect)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.9.0")
     implementation(libs.simbot.spring)
     implementation(libs.simbot.component.onebot)
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.belerweb:pinyin4j:2.5.1")
+
+    implementation("com.openai:openai-java:4.28.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-schema-generator-json:0.4.2")
 
     runtimeOnly(libs.ktor.client.java)
 }

@@ -1,3 +1,8 @@
 simbot:
   application:
     application-launch-mode: thread
+openai:
+  api-key: ${OPENAI_API_KEY}
+  endpoint: ${OPENAI_ENDPOINT:https://api.deepseek.com}
+  max-tokens: 500
+  timeout: 60000
