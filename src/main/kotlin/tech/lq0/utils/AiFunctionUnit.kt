@@ -3,8 +3,9 @@ package tech.lq0.utils
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
-import org.springframework.beans.factory.InitializingBean
+import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.ApplicationContext
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import kotlin.reflect.KFunction
 import kotlin.reflect.KParameter
@@ -16,10 +17,6 @@ import kotlin.reflect.typeOf
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class AiFunction(val description: String = "", val name: String = "")
-
-@Target(AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class AiComponent
 
 @Serializable
 data class FunctionCall(
@@ -53,10 +50,15 @@ val availableFunctions by lazy {
 
 @OptIn(ExperimentalStdlibApi::class)
 @Component
-class AiFunctionScanner(private val applicationContext: ApplicationContext) : InitializingBean {
+class AiFunctionScanner(private val applicationContext: ApplicationContext) {
+    @AiFunction("发送功能无效提示，在无法识别请求时调用")
+    suspend fun OneBotNormalGroupMessageEvent.invalid() {
+        invalidCall()
+    }
 
-    override fun afterPropertiesSet() {
-        val beans = applicationContext.getBeansWithAnnotation(AiComponent::class.java)
+    @EventListener(ApplicationReadyEvent::class)
+    fun processAnnotations() {
+        val beans = applicationContext.getBeansWithAnnotation(Component::class.java)
         for (bean in beans.values) {
             bean::class.members.filterIsInstance<KFunction<*>>().forEach { function ->
                 val annotation = function.findAnnotation<AiFunction>() ?: return@forEach
@@ -65,9 +67,14 @@ class AiFunctionScanner(private val applicationContext: ApplicationContext) : In
                 val description = annotation.description
 
                 val parameters = function.parameters
-                require(
-                    parameters.getOrNull(1)?.type?.isSubtypeOf(typeOf<OneBotNormalGroupMessageEvent>()) ?: false
-                ) { "Only extension function of OneBotNormalGroupMessageEvent is supported!" }
+
+                require(parameters.size in 2..3) {
+                    "${function.name} in ${bean::class.simpleName} has invalid parameter count!"
+                }
+
+                require(parameters.getOrNull(1)?.type?.isSubtypeOf(typeOf<OneBotNormalGroupMessageEvent>()) ?: false) {
+                    "${function.name} in ${bean::class.simpleName} is not an extension function of OneBotNormalGroupMessageEvent!"
+                }
 
                 val param = parameters.getOrNull(2)
 
@@ -99,4 +106,8 @@ suspend fun OneBotNormalGroupMessageEvent.invokeFunction(call: FunctionCall) {
     }
 
     // TODO 处理有参数情况
+}
+
+suspend fun OneBotNormalGroupMessageEvent.invalidCall() {
+    directlySend("无法识别要调用的功能，请输入/help查看帮助")
 }

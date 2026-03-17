@@ -435,7 +435,7 @@ class LiveNotify @Autowired constructor(app: Application) {
     @ChinesePunctuationReplace
     @Filter("!live")
     suspend fun OneBotNormalGroupMessageEvent.currentlyLive() {
-        showCurrentlyLive()
+        showLive()
     }
 
     @Listener
@@ -576,84 +576,87 @@ class LiveNotify @Autowired constructor(app: Application) {
         }
 
     }
-}
 
-// 获取用户名，检测敏感词，缓存 UID -> 名称 对应关系
-private val RoomInfo.filteredLiverName
-    get(): String {
-        val uid = uid.toString()
-        return if (uid in sensitiveLivers.get()) "UID: $uid" else {
-            if (name.isSensitive()) {
-                liveLogger.warn("检测到主播 UID: $uid($name) 名称疑似含有敏感词，已替换为UID")
-                sensitiveLivers.get() += uid
-                sensitiveLivers.save()
-                "UID: $uid"
-            } else name.also {
-                if (UIDNameCache.get().getOrDefault(uid, "") != name) {
-                    UIDNameCache.get()[uid] = name
-                    UIDNameCache.save()
+    // 获取用户名，检测敏感词，缓存 UID -> 名称 对应关系
+    private val RoomInfo.filteredLiverName
+        get(): String {
+            val uid = uid.toString()
+            return if (uid in sensitiveLivers.get()) "UID: $uid" else {
+                if (name.isSensitive()) {
+                    liveLogger.warn("检测到主播 UID: $uid($name) 名称疑似含有敏感词，已替换为UID")
+                    sensitiveLivers.get() += uid
+                    sensitiveLivers.save()
+                    "UID: $uid"
+                } else name.also {
+                    if (UIDNameCache.get().getOrDefault(uid, "") != name) {
+                        UIDNameCache.get()[uid] = name
+                        UIDNameCache.save()
+                    }
                 }
             }
         }
-    }
 
-// 获取经过敏感词检测后的标题
-private val RoomInfo.filteredTitle
-    get() = if (uid.toString() in sensitiveLivers.get()) "" else {
-        if (title.isSensitive()) {
-            liveLogger.warn("检测到主播 UID: $uid($name) 直播间标题($title)疑似含有敏感词，已替换为UID")
-            sensitiveLivers.get() += uid.toString()
-            sensitiveLivers.save()
-            ""
-        } else title
-    }
-
-suspend fun OneBotNormalGroupMessageEvent.showCurrentlyLive() {
-    val currentTime = System.currentTimeMillis() / 1000
-
-    val rooms = liveUIDBind.get()
-        .filter { groupId.toString() in it.value }
-        .mapNotNull { liveStateCache.get()[it.key].takeIf { state -> state?.liveStatus == 1 } }
-        .ifEmpty {
-            directlySend("当前没有主播正在直播！")
-            return
+    // 获取经过敏感词检测后的标题
+    private val RoomInfo.filteredTitle
+        get() = if (uid.toString() in sensitiveLivers.get()) "" else {
+            if (title.isSensitive()) {
+                liveLogger.warn("检测到主播 UID: $uid($name) 直播间标题($title)疑似含有敏感词，已替换为UID")
+                sensitiveLivers.get() += uid.toString()
+                sensitiveLivers.save()
+                ""
+            } else title
         }
 
-    val msg = rooms.joinToString("\n\n") {
-        val title = it.title
-        val room = "https://live.bilibili.com/${it.roomId}"
-        val name = it.filteredLiverName
-        val area = it.areaName
 
-        val config = liveGroupConfig[groupId.toString()] ?: LiveNotifyGroupConfig()
+    @AiFunction("展示当前正在开播的主播列表")
+    suspend fun OneBotNormalGroupMessageEvent.showLive() {
+        val currentTime = System.currentTimeMillis() / 1000
 
-        """
+        val rooms = liveUIDBind.get()
+            .filter { groupId.toString() in it.value }
+            .mapNotNull { liveStateCache.get()[it.key].takeIf { state -> state?.liveStatus == 1 } }
+            .ifEmpty {
+                directlySend("当前没有主播正在直播！")
+                return
+            }
+
+        val msg = rooms.joinToString("\n\n") {
+            val title = it.title
+            val room = "https://live.bilibili.com/${it.roomId}"
+            val name = it.filteredLiverName
+            val area = it.areaName
+
+            val config = liveGroupConfig[groupId.toString()] ?: LiveNotifyGroupConfig()
+
+            """
                 $name 正在${area}分区直播，已开播${getTimeDiffStr(it.liveTime, currentTime, config.hazelTimeUnit)}
                 $title
                 $room
             """.trimIndent()
-    }
+        }
 
-    directlySend(
-        """
+        directlySend(
+            """
                 |当前正在直播的${rooms.size}个主播： 
                 |
                 |$msg
             """.trimMargin()
-    )
-}
+        )
+    }
 
-suspend fun OneBotNormalGroupMessageEvent.showAllSubscribe() = showAnySubscribe(groupId.toString())
+    @AiFunction("显示该群订阅了哪些主播")
+    suspend fun OneBotNormalGroupMessageEvent.showAllSubscribe() = showAnySubscribe(groupId.toString())
 
-suspend fun OneBotMessageEvent.showAnySubscribe(group: String) {
-    val subscribedUIDs = liveUIDBind.get().filter { group in it.value }.map { it.key }
-    val nameOrUIDs = subscribedUIDs.map(::getUIDNameString)
+    suspend fun OneBotMessageEvent.showAnySubscribe(group: String) {
+        val subscribedUIDs = liveUIDBind.get().filter { group in it.value }.map { it.key }
+        val nameOrUIDs = subscribedUIDs.map(::getUIDNameString)
 
-    directlySend(
-        if (subscribedUIDs.isEmpty()) {
-            "该群还没有订阅主播！"
-        } else {
-            "该群订阅的${subscribedUIDs.size}个主播: ${nameOrUIDs.joinToString()}"
-        }
-    )
+        directlySend(
+            if (subscribedUIDs.isEmpty()) {
+                "该群还没有订阅主播！"
+            } else {
+                "该群订阅的${subscribedUIDs.size}个主播: ${nameOrUIDs.joinToString()}"
+            }
+        )
+    }
 }
