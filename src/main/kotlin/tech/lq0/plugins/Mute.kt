@@ -28,6 +28,7 @@ class Mute {
     )
 
     @AiFunction("用户主动抽取的禁言抽奖，将用户随机禁言一段时间")
+    @FunctionSwitch("Mute")
     suspend fun OneBotNormalGroupMessageEvent.mute() {
         randomMute(true)
     }

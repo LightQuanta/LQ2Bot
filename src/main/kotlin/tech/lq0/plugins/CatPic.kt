@@ -34,6 +34,7 @@ class CatPic {
     suspend fun OneBotMessageEvent.cat() = randomCat()
 
     @AiFunction("来点猫/哈基米图，发送一张随机的猫图", "randomCat")
+    @FunctionSwitch("CatPic")
     suspend fun OneBotNormalGroupMessageEvent.groupRandomCat() {
         randomCat()
     }

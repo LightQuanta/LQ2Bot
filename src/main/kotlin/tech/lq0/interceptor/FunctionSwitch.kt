@@ -2,6 +2,7 @@ package tech.lq0.interceptor
 
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
+import love.forte.simbot.event.Event
 import love.forte.simbot.event.EventInterceptor
 import love.forte.simbot.event.EventResult
 import love.forte.simbot.quantcat.common.annotations.Interceptor
@@ -41,19 +42,6 @@ data object GroupSwitchFactory : AnnotationEventInterceptorFactory {
         override suspend fun EventInterceptor.Context.intercept(): EventResult {
             val event = eventListenerContext.event
 
-            // 禁止黑名单用户使用功能
-            val config = botPermissionConfig.get()
-            if (event is OneBotMessageEvent && event.authorId.toString() in config.memberBlackList) {
-                return EventResult.invalid()
-            }
-            // 私聊消息无需管理是否启用
-            if (event !is OneBotGroupMessageEvent) return invoke()
-
-            // 禁止黑名单群使用功能
-            if (event.groupId.toString() in config.groupBlackList) {
-                return EventResult.invalid()
-            }
-
             // 查找GroupSwitch注解
             val listener = eventListenerContext.listener
             val functionSwitch = if (listener is KFunctionEventListener) {
@@ -62,21 +50,45 @@ data object GroupSwitchFactory : AnnotationEventInterceptorFactory {
                 null
             }
 
-            val defaultEnabled = functionSwitch?.defaultEnabled ?: true
-            val pluginID = functionSwitch?.value ?: return EventResult.invalid()
-
-            val groupConfig = groupPluginConfig.get(event.groupId.toString())
-            // 若禁用此插件，则不进行处理
-            if (pluginID in (groupConfig?.disabled ?: setOf())) return EventResult.invalid()
-
-            // 查看插件是否明确启用，否则使用插件默认设置
-            val enabled = pluginID in (groupConfig?.enabled ?: setOf())
-            return if (enabled || defaultEnabled) {
-                invoke()
-            } else {
-                EventResult.invalid()
+            if (!functionEnabled(event, functionSwitch)) {
+                return EventResult.invalid()
             }
-
+            return invoke()
         }
     }
+}
+
+fun notBanned(event: Event): Boolean {
+    // 禁止黑名单用户使用功能
+    val config = botPermissionConfig.get()
+    if (event is OneBotMessageEvent && event.authorId.toString() in config.memberBlackList) {
+        return false
+    }
+    // 私聊消息无需管理是否启用
+    if (event !is OneBotGroupMessageEvent) return true
+
+    // 禁止黑名单群使用功能
+    if (event.groupId.toString() in config.groupBlackList) {
+        return false
+    }
+
+    return true
+}
+
+fun functionEnabled(event: Event, functionSwitch: FunctionSwitch? = null): Boolean {
+    if (!notBanned(event)) return false
+
+    // 私聊消息无需管理是否启用
+    if (event !is OneBotGroupMessageEvent) return true
+
+    val defaultEnabled = functionSwitch?.defaultEnabled ?: true
+    val pluginID = functionSwitch?.value ?: return false
+
+    val groupConfig = groupPluginConfig[event.groupId.toString()]
+    // 若禁用此插件，则不进行处理
+    if (pluginID in (groupConfig?.disabled ?: setOf())) return false
+
+    // 查看插件是否明确启用，否则使用插件默认设置
+    val enabled = pluginID in (groupConfig?.enabled ?: setOf())
+    return enabled || defaultEnabled
 }

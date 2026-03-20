@@ -30,6 +30,7 @@ class Dice @Autowired constructor(val config: OpenAIProperties) {
     }
 
     @AiFunction("骰子")
+    @FunctionSwitch("Dice")
     suspend fun OneBotNormalGroupMessageEvent.dice() {
         val resp = client.getJsonResponse<DiceParameter>(config, buildPrompt {
             append(prompt)

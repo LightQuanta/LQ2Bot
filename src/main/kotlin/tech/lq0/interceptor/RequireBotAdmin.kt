@@ -1,6 +1,7 @@
 package tech.lq0.interceptor
 
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotMessageEvent
+import love.forte.simbot.event.Event
 import love.forte.simbot.event.EventInterceptor
 import love.forte.simbot.event.EventResult
 import love.forte.simbot.quantcat.common.annotations.Interceptor
@@ -27,11 +28,18 @@ data object RequireBotAdminFactory : AnnotationEventInterceptorFactory {
         override suspend fun EventInterceptor.Context.intercept(): EventResult {
             val event = eventListenerContext.event
 
-            return if (event is OneBotMessageEvent && event.authorId.toString() in botPermissionConfig.get().admin) {
+            return if (hasBotAdminPermission(event)) {
                 invoke()
             } else {
+//                if (event is OneBotMessageEvent) {
+//                    event.directlySend("权限不足，需要${CommandPermission.BOT_ADMIN.description}权限")
+//                }
                 EventResult.invalid()
             }
         }
     }
+}
+
+fun hasBotAdminPermission(event: Event): Boolean {
+    return event is OneBotMessageEvent && event.authorId.toString() in botPermissionConfig.get().admin
 }

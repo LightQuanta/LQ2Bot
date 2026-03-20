@@ -149,7 +149,7 @@ class DDTool {
         }.toText()
     )
 
-// 主播列表更新
+    // 主播列表更新
 
     private var updatingVtuberList = false
     private suspend fun updateVtuberList() {
@@ -175,6 +175,7 @@ class DDTool {
     }
 
     @AiFunction("今天看谁/现在看谁，随机抽取一个虚拟主播（管人，vtb，vtuber，vup）进行展示", "dd")
+    @FunctionSwitch("DDTool")
     suspend fun OneBotNormalGroupMessageEvent.groupDd() {
         dd()
     }

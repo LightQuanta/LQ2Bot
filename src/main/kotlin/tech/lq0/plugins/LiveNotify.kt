@@ -24,6 +24,7 @@ import love.forte.simbot.quantcat.common.annotations.Listener
 import love.forte.simbot.resource.toResource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
+import tech.lq0.config.OpenAIProperties
 import tech.lq0.interceptor.ChinesePunctuationReplace
 import tech.lq0.interceptor.FunctionSwitch
 import tech.lq0.interceptor.RequireAdmin
@@ -97,7 +98,8 @@ const val GLOBAL_MAXIMUM_SUBSCRIBE_COUNT = 5000
 const val POLLING_DELAY = 30
 
 @Component
-class LiveNotify @Autowired constructor(app: Application) {
+class LiveNotify @Autowired constructor(app: Application, val config: OpenAIProperties) {
+    val client = createOpenAIClient(config)
 
     init {
         liveLogger.info("init")
@@ -331,6 +333,96 @@ class LiveNotify @Autowired constructor(app: Application) {
         delay(delay)
     }
 
+    suspend fun OneBotNormalGroupMessageEvent.addSubscribe(uidList: List<String>) {
+        val uidBind = liveUIDBind.get()
+        val subscribed = uidBind.filter { groupId.toString() in it.value }.keys
+
+        // 单个群最大订阅数量限制
+        if (subscribed.size >= GROUP_MAXIMUM_SUBSCRIBE_COUNT) {
+            directlySend("本群订阅的主播数量已达到最大值！")
+            return
+        }
+
+        // 全局订阅数量限制
+        if (uidBind.size >= GLOBAL_MAXIMUM_SUBSCRIBE_COUNT) {
+            directlySend("全局订阅的主播数量已达到最大值！")
+            return
+        }
+
+        val limitedSubscribeList = (uidList - subscribed)
+            .take((GROUP_MAXIMUM_SUBSCRIBE_COUNT - subscribed.size).coerceAtLeast(0))
+            .take((GLOBAL_MAXIMUM_SUBSCRIBE_COUNT - uidBind.size).coerceAtLeast(0))
+
+        for (uid in limitedSubscribeList) {
+            val subscribedGroups = uidBind.getOrPut(uid) { mutableSetOf() }
+            subscribedGroups += groupId.toString()
+        }
+        liveLogger.info(
+            "群 $groupId(${content().name}) 订阅了${limitedSubscribeList.size}个主播: ${
+                limitedSubscribeList.joinToString { getUIDNameString(it) }
+            }"
+        )
+
+        if (limitedSubscribeList.isEmpty()) {
+            directlySend("已订阅上述全部主播！")
+        } else {
+            directlySend(
+                "已订阅以下${limitedSubscribeList.size}个主播: \n${
+                    limitedSubscribeList.joinToString { getUIDNameString(it) }
+                }"
+            )
+        }
+    }
+
+    @Serializable
+    data class UnsubscribeList(
+        val list: List<String> = listOf()
+    )
+
+    @AiFunction("取消订阅指定主播的开播通知", "removeSubscribe")
+    @FunctionSwitch("LiveNotify")
+    @RequireAdmin
+    suspend fun OneBotNormalGroupMessageEvent.removeSubscribeCommand() {
+        val subscribedUIDs = liveUIDBind.get().filter { groupId.toString() in it.value }.map { it.key }
+        val nameOrUIDs = subscribedUIDs.joinToString(",", transform = ::getUIDNameString)
+
+        val resp = client.getJsonResponse<UnsubscribeList>(config, buildPrompt {
+            system("""结合当前已订阅主播列表，提取用户明确指定要取消订阅的主播的UID列表（若已订阅主播列表里没有指定主播，不要返回用户的输入，直接不返回指定内容，不要自作主张取消订阅用户未明确指定的主播），返回JSON格式的List<String>，对应的键名为list""")
+            system(nameOrUIDs)
+            user(messageContent.messages.toTextWithoutAt())
+        }) ?: UnsubscribeList()
+
+        removeSubscribe(resp.list)
+    }
+
+    suspend fun OneBotNormalGroupMessageEvent.removeSubscribe(uidList: List<String>) {
+        val uidBind = liveUIDBind.get()
+        val subscribed = uidBind.filter { groupId.toString() in it.value }.keys
+        val uidToRemove = uidList.intersect(subscribed)
+
+        if (uidToRemove.isEmpty()) {
+            directlySend("该群没有订阅上述任何主播！")
+            return
+        }
+
+        for (uid in uidToRemove) {
+            val bindGroups = uidBind[uid]!!.also { it -= groupId.toString() }
+            if (bindGroups.isEmpty()) {
+                liveStateCache.get() -= uid
+                uidBind -= uid
+            }
+        }
+        liveLogger.info(
+            "群 $groupId(${content().name}) 取消订阅了${uidToRemove.size}个主播: ${
+                uidToRemove.joinToString { getUIDNameString(it) }
+            }"
+        )
+        directlySend(
+            "已取消订阅以下${uidToRemove.size}个主播: \n${uidToRemove.joinToString { getUIDNameString(it) }}"
+        )
+
+    }
+
     @Listener
     @RequireAdmin
     @FunctionSwitch("LiveNotify")
@@ -349,69 +441,10 @@ class LiveNotify @Autowired constructor(app: Application) {
             return
         }
 
-        val uidBind = liveUIDBind.get()
         if (operation == "subscribe") {
-            val subscribed = uidBind.filter { groupId.toString() in it.value }.keys
-
-            // 单个群最大订阅数量限制
-            if (subscribed.size >= GROUP_MAXIMUM_SUBSCRIBE_COUNT) {
-                directlySend("本群订阅的主播数量已达到最大值！")
-                return
-            }
-
-            // 全局订阅数量限制
-            if (uidBind.size >= GLOBAL_MAXIMUM_SUBSCRIBE_COUNT) {
-                directlySend("全局订阅的主播数量已达到最大值！")
-                return
-            }
-
-            val limitedSubscribeList = (uidList - subscribed)
-                .take((GROUP_MAXIMUM_SUBSCRIBE_COUNT - subscribed.size).coerceAtLeast(0))
-                .take((GLOBAL_MAXIMUM_SUBSCRIBE_COUNT - uidBind.size).coerceAtLeast(0))
-
-            for (uid in limitedSubscribeList) {
-                val subscribedGroups = uidBind.getOrPut(uid) { mutableSetOf() }
-                subscribedGroups += groupId.toString()
-            }
-            liveLogger.info(
-                "群 $groupId(${content().name}) 订阅了${limitedSubscribeList.size}个主播: ${
-                    limitedSubscribeList.joinToString { getUIDNameString(it) }
-                }"
-            )
-
-            if (limitedSubscribeList.isEmpty()) {
-                directlySend("已订阅上述全部主播！")
-            } else {
-                directlySend(
-                    "已订阅以下${limitedSubscribeList.size}个主播: \n${
-                        limitedSubscribeList.joinToString { getUIDNameString(it) }
-                    }"
-                )
-            }
+            addSubscribe(uidList)
         } else {
-            val subscribed = uidBind.filter { groupId.toString() in it.value }.keys
-            val uidToRemove = uidList.intersect(subscribed)
-
-            if (uidToRemove.isEmpty()) {
-                directlySend("该群没有订阅上述任何主播！")
-                return
-            }
-
-            for (uid in uidToRemove) {
-                val bindGroups = uidBind[uid]!!.also { it -= groupId.toString() }
-                if (bindGroups.isEmpty()) {
-                    liveStateCache.get() -= uid
-                    uidBind -= uid
-                }
-            }
-            liveLogger.info(
-                "群 $groupId(${content().name}) 取消订阅了${uidToRemove.size}个主播: ${
-                    uidToRemove.joinToString { getUIDNameString(it) }
-                }"
-            )
-            directlySend(
-                "已取消订阅以下${uidToRemove.size}个主播: \n${uidToRemove.joinToString { getUIDNameString(it) }}"
-            )
+            removeSubscribe(uidList)
         }
         liveStateCache.save()
         liveUIDBind.save()
@@ -609,6 +642,7 @@ class LiveNotify @Autowired constructor(app: Application) {
 
 
     @AiFunction("展示当前正在开播的主播列表")
+    @FunctionSwitch("LiveNotify")
     suspend fun OneBotNormalGroupMessageEvent.showLive() {
         val currentTime = System.currentTimeMillis() / 1000
 
@@ -645,6 +679,7 @@ class LiveNotify @Autowired constructor(app: Application) {
     }
 
     @AiFunction("显示该群订阅了哪些主播")
+    @FunctionSwitch("LiveNotify")
     suspend fun OneBotNormalGroupMessageEvent.showAllSubscribe() = showAnySubscribe(groupId.toString())
 
     suspend fun OneBotMessageEvent.showAnySubscribe(group: String) {

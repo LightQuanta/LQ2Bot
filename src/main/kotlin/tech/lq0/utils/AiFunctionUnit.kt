@@ -16,10 +16,13 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import tech.lq0.config.OpenAIProperties
+import tech.lq0.interceptor.FunctionSwitch
+import tech.lq0.interceptor.RequireAdmin
+import tech.lq0.interceptor.RequireBotAdmin
+import tech.lq0.interceptor.functionEnabled
 import kotlin.jvm.optionals.getOrNull
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
-import kotlin.reflect.KParameter
 import kotlin.reflect.full.callSuspend
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.isSubtypeOf
@@ -59,9 +62,10 @@ data class FunctionCall(
 data class FunctionInfo(
     val name: String,
     val description: String,
+    val permission: CommandPermission,
+    val functionSwitch: FunctionSwitch? = null,
     val function: KFunction<*>,
     val bean: Any,
-    val parameter: KParameter? = null,
 )
 
 private val registeredFunctions = mutableMapOf<String, FunctionInfo>()
@@ -73,8 +77,6 @@ val availableFunctions by lazy {
             add(buildJsonObject {
                 put("name", name)
                 put("description", info.description)
-
-                // TODO 处理有参数情况
             })
         }
     })
@@ -93,6 +95,16 @@ class AiFunctionScanner(private val applicationContext: ApplicationContext) {
                 val name = annotation.name.ifEmpty { function.name }
                 val description = annotation.description
 
+                val permission = if (function.findAnnotation<RequireBotAdmin>() != null) {
+                    CommandPermission.BOT_ADMIN
+                } else if (function.findAnnotation<RequireAdmin>() != null) {
+                    CommandPermission.ADMIN
+                } else {
+                    CommandPermission.ALL
+                }
+
+                val functionSwitchName = function.findAnnotation<FunctionSwitch>()
+
                 val parameters = function.parameters
 
                 require(parameters.size in 2..3) {
@@ -106,7 +118,7 @@ class AiFunctionScanner(private val applicationContext: ApplicationContext) {
                 val param = parameters.getOrNull(2)
 
                 if (param == null) {
-                    val info = FunctionInfo(name, description, function, bean)
+                    val info = FunctionInfo(name, description, permission, functionSwitchName, function, bean)
                     require(registeredFunctions.put(name, info) == null) {
                         "Function $name is already registered!"
                     }
@@ -124,9 +136,17 @@ suspend fun OneBotNormalGroupMessageEvent.invokeFunction(call: FunctionCall) {
         return
     }
 
-    if (functionInfo.parameter == null) {
-        functionInfo.function.callSuspend(functionInfo.bean, this)
+    if (!hasPermission(this, functionInfo.permission)) {
+        directlySend("权限不足，需要${functionInfo.permission.description}权限")
+        return
     }
+
+    if (!functionEnabled(this, functionInfo.functionSwitch)) {
+        directlySend("该群未启用该功能！")
+        return
+    }
+
+    functionInfo.function.callSuspend(functionInfo.bean, this)
 }
 
 suspend fun OneBotNormalGroupMessageEvent.invalidCall() {
