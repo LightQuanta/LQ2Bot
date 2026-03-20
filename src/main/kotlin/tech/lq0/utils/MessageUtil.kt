@@ -131,6 +131,11 @@ suspend fun OneBotMessageEvent.replyAndLog(messages: Messages) {
 }
 
 /**
+ * 去除@后将消息转为文本
+ */
+fun Messages.toTextWithoutAt() = toList().filter { it !is At }.toText()
+
+/**
  * 将消息转换为文本
  */
 fun Messages.toText() = toList().toText()

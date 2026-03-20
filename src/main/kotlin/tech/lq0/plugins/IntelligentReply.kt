@@ -43,7 +43,7 @@ class IntelligentReply @Autowired constructor(val app: Application, val config: 
         if (atId != bot.id.toString()) return
 
         // 仅取前100字节省token（）
-        val text = messageContent.messages.toList().filter { it !is At }.toText().trim().take(100)
+        val text = messageContent.messages.toTextWithoutAt().trim().take(100)
 
         val prompt = buildPrompt {
             append(systemPrompt)

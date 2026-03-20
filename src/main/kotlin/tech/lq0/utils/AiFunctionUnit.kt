@@ -168,11 +168,21 @@ fun createOpenAIClient(config: OpenAIProperties): OpenAIClient {
         .build()
 }
 
+private val responseCache = object : LinkedHashMap<List<ChatCompletionMessageParam>, String?>() {
+    override fun removeEldestEntry(eldest: Map.Entry<List<ChatCompletionMessageParam>, String?>): Boolean {
+        return size > 100
+    }
+}
+
 fun OpenAIClient.sendChat(
     config: OpenAIProperties,
     prompt: List<ChatCompletionMessageParam>,
     useJsonFormat: Boolean = false,
 ): String? {
+    if (prompt in responseCache) {
+        return responseCache[prompt]
+    }
+
     val builder = ChatCompletionCreateParams.builder()
         .model(ChatModel.of(config.model))
         .messages(prompt)
@@ -182,7 +192,7 @@ fun OpenAIClient.sendChat(
         builder.responseFormat(ResponseFormatText.builder().type(JsonValue.from("json_object")).build())
     }
 
-    return chat().completions().create(builder.build()).getText()
+    return chat().completions().create(builder.build()).getText().also { responseCache[prompt] = it }
 }
 
 fun ChatCompletion.getText() = choices()
