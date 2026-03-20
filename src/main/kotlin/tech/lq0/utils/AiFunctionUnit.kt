@@ -6,6 +6,8 @@ import com.openai.core.JsonValue
 import com.openai.models.ChatModel
 import com.openai.models.ResponseFormatText
 import com.openai.models.chat.completions.*
+import kotlinx.schema.generator.json.ReflectionClassJsonSchemaGenerator
+import kotlinx.schema.json.encodeToString
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
@@ -15,6 +17,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import tech.lq0.config.OpenAIProperties
 import kotlin.jvm.optionals.getOrNull
+import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KParameter
 import kotlin.reflect.full.callSuspend
@@ -108,10 +111,6 @@ class AiFunctionScanner(private val applicationContext: ApplicationContext) {
                         "Function $name is already registered!"
                     }
                 }
-
-                // TODO 处理有参数情况
-//                    val generator = SerializationClassJsonSchemaGenerator.Default
-//                    val schema = generator.generateSchema(serializer(param.javaType).descriptor)
             }
         }
     }
@@ -128,8 +127,6 @@ suspend fun OneBotNormalGroupMessageEvent.invokeFunction(call: FunctionCall) {
     if (functionInfo.parameter == null) {
         functionInfo.function.callSuspend(functionInfo.bean, this)
     }
-
-    // TODO 处理有参数情况
 }
 
 suspend fun OneBotNormalGroupMessageEvent.invalidCall() {
@@ -174,6 +171,13 @@ private val responseCache = object : LinkedHashMap<List<ChatCompletionMessagePar
     }
 }
 
+inline fun <reified T : Any> OpenAIClient.getJsonResponse(
+    config: OpenAIProperties,
+    prompt: List<ChatCompletionMessageParam>,
+): T? {
+    return Json.decodeFromString<T>(sendChat(config, prompt, true) ?: return null)
+}
+
 fun OpenAIClient.sendChat(
     config: OpenAIProperties,
     prompt: List<ChatCompletionMessageParam>,
@@ -200,3 +204,14 @@ fun ChatCompletion.getText() = choices()
     ?.message()
     ?.content()
     ?.getOrNull()
+
+val schemaCache = mutableMapOf<KClass<*>, String>()
+
+inline fun <reified T : Any> generateSchema(): String {
+    if (T::class in schemaCache) {
+        return schemaCache[T::class]!!
+    }
+
+    val generator = ReflectionClassJsonSchemaGenerator.Default
+    return generator.generateSchema(T::class).encodeToString().also { schemaCache[T::class] = it }
+}
