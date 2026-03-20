@@ -33,7 +33,7 @@ class CatPic {
     @Filter("来点(猫(猫|图)|哈基米)")
     suspend fun OneBotMessageEvent.cat() = randomCat()
 
-    @AiFunction("来点猫图，发送一张随机的猫图（若用户说的是哈基米，也将其视为猫）", "randomCat")
+    @AiFunction("来点猫/哈基米图，发送一张随机的猫图", "randomCat")
     suspend fun OneBotNormalGroupMessageEvent.groupRandomCat() {
         randomCat()
     }

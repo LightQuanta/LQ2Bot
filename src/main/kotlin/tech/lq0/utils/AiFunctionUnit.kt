@@ -1,5 +1,11 @@
 package tech.lq0.utils
 
+import com.openai.client.OpenAIClient
+import com.openai.client.okhttp.OpenAIOkHttpClient
+import com.openai.core.JsonValue
+import com.openai.models.ChatModel
+import com.openai.models.ResponseFormatText
+import com.openai.models.chat.completions.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotNormalGroupMessageEvent
@@ -7,12 +13,16 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.ApplicationContext
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
+import tech.lq0.config.OpenAIProperties
+import kotlin.jvm.optionals.getOrNull
 import kotlin.reflect.KFunction
 import kotlin.reflect.KParameter
 import kotlin.reflect.full.callSuspend
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.typeOf
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.toJavaDuration
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
@@ -22,7 +32,26 @@ annotation class AiFunction(val description: String = "", val name: String = "")
 data class FunctionCall(
     val name: String,
     val parameter: JsonObject? = null
-)
+) {
+    companion object {
+        val INVALID = FunctionCall("invalid")
+
+        fun parse(resp: String?, useJsonFormat: Boolean = false): FunctionCall {
+            if (resp == null) return INVALID
+
+            return if (!useJsonFormat) {
+                FunctionCall(resp)
+            } else {
+                try {
+                    return Json.decodeFromString<FunctionCall>(resp)
+                } catch (e: Exception) {
+                    chatLogger.warn("Invalid function call: $e")
+                    INVALID
+                }
+            }
+        }
+    }
+}
 
 data class FunctionInfo(
     val name: String,
@@ -51,11 +80,6 @@ val availableFunctions by lazy {
 @OptIn(ExperimentalStdlibApi::class)
 @Component
 class AiFunctionScanner(private val applicationContext: ApplicationContext) {
-    @AiFunction("发送功能无效提示，在无法识别请求时调用")
-    suspend fun OneBotNormalGroupMessageEvent.invalid() {
-        invalidCall()
-    }
-
     @EventListener(ApplicationReadyEvent::class)
     fun processAnnotations() {
         val beans = applicationContext.getBeansWithAnnotation(Component::class.java)
@@ -109,5 +133,60 @@ suspend fun OneBotNormalGroupMessageEvent.invokeFunction(call: FunctionCall) {
 }
 
 suspend fun OneBotNormalGroupMessageEvent.invalidCall() {
-    directlySend("无法识别要调用的功能，请输入/help查看帮助")
+    directlySend("无法识别要调用的功能，请访问 https://docs.lq0.tech/bot 查看帮助")
 }
+
+class PromptBuilder {
+    private val params = mutableListOf<ChatCompletionMessageParam>()
+
+    fun append(param: List<ChatCompletionMessageParam>) {
+        params += param
+    }
+
+    fun system(prompt: String) {
+        params += ChatCompletionMessageParam.ofSystem(
+            ChatCompletionSystemMessageParam.builder().content(prompt).build()
+        )
+    }
+
+    fun user(prompt: String) {
+        params += ChatCompletionMessageParam.ofUser(
+            ChatCompletionUserMessageParam.builder().content(prompt).build()
+        )
+    }
+
+    fun build() = params.toList()
+}
+
+fun buildPrompt(builder: PromptBuilder.() -> Unit) = PromptBuilder().apply(builder).build()
+
+fun createOpenAIClient(config: OpenAIProperties): OpenAIClient {
+    return OpenAIOkHttpClient.builder()
+        .apiKey(config.apiKey)
+        .baseUrl(config.endpoint)
+        .timeout(config.timeout.milliseconds.toJavaDuration())
+        .build()
+}
+
+fun OpenAIClient.sendChat(
+    config: OpenAIProperties,
+    prompt: List<ChatCompletionMessageParam>,
+    useJsonFormat: Boolean = false,
+): String? {
+    val builder = ChatCompletionCreateParams.builder()
+        .model(ChatModel.of(config.model))
+        .messages(prompt)
+        .maxCompletionTokens(config.maxTokens)
+
+    if (useJsonFormat) {
+        builder.responseFormat(ResponseFormatText.builder().type(JsonValue.from("json_object")).build())
+    }
+
+    return chat().completions().create(builder.build()).getText()
+}
+
+fun ChatCompletion.getText() = choices()
+    .firstOrNull()
+    ?.message()
+    ?.content()
+    ?.getOrNull()
