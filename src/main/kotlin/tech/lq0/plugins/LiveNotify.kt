@@ -178,6 +178,23 @@ class LiveNotify @Autowired constructor(app: Application, val config: OpenAIProp
         }
     }
 
+    @Listener
+    @FunctionSwitch("LiveNotify")
+    @ChinesePunctuationReplace
+    @Filter("!livestatis")
+    suspend fun OneBotMessageEvent.showLiveStatistic() {
+        val liveBind = liveUIDBind.get()
+        val rooms = liveStateCache.get().filter { it.key in liveBind.keys }
+
+        directlySend(
+            """
+            正在监听${rooms.size}个直播间的开播状态
+            当前有${rooms.values.filter { it.liveStatus == 1 }.size}个主播正在直播
+            有${liveBind.values.fold(mutableSetOf<String>()) { a, b -> a.also { it += b } }.size}个群正在使用bot订阅开播通知
+        """.trimIndent()
+        )
+    }
+
     /**
      * 根据获取到的单个主播的直播间信息，检测并通知对应的群聊
      */
@@ -641,7 +658,7 @@ class LiveNotify @Autowired constructor(app: Application, val config: OpenAIProp
         }
 
 
-    @AiFunction("展示当前正在开播的主播列表")
+    @AiFunction("展示当前正在开播的主播开播状态（直播间标题、开播时长等）")
     @FunctionSwitch("LiveNotify")
     suspend fun OneBotNormalGroupMessageEvent.showLive() {
         val currentTime = System.currentTimeMillis() / 1000
