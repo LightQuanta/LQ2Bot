@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component
 data class OpenAIProperties(
     var apiKey: String = "",
     var endpoint: String = "https://api.deepseek.com",
-    var model: String = "deepseek-chat",
+    var model: String = "deepseek-v4-flash",
     var maxTokens: Long = 500,
     var timeout: Long = 10000,
 )
