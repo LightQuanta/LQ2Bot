@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.plugin.spring)
     alias(libs.plugins.spring)
     alias(libs.plugins.spring.management)
+    kotlin("plugin.jpa") version "2.2.0"
 }
 
 group = "tech.lq0"
@@ -30,6 +31,9 @@ dependencies {
 
     implementation("com.openai:openai-java:4.28.0")
     implementation("org.jetbrains.kotlinx:kotlinx-schema-generator-json:0.4.2")
+
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    runtimeOnly("com.h2database:h2")
 
     runtimeOnly(libs.ktor.client.java)
 }

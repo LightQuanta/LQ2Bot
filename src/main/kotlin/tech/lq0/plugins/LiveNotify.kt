@@ -29,6 +29,9 @@ import tech.lq0.interceptor.ChinesePunctuationReplace
 import tech.lq0.interceptor.FunctionSwitch
 import tech.lq0.interceptor.RequireAdmin
 import tech.lq0.interceptor.RequireBotAdmin
+import tech.lq0.record.EventType
+import tech.lq0.record.LiveRecordService
+import tech.lq0.record.LiveStats
 import tech.lq0.utils.*
 import java.net.URL
 import kotlin.math.roundToLong
@@ -98,7 +101,11 @@ const val GLOBAL_MAXIMUM_SUBSCRIBE_COUNT = 5000
 const val POLLING_DELAY = 30
 
 @Component
-class LiveNotify @Autowired constructor(app: Application, val config: OpenAIProperties) {
+class LiveNotify @Autowired constructor(
+    app: Application,
+    val config: OpenAIProperties,
+    val liveRecordService: LiveRecordService,
+) {
     val client = createOpenAIClient(config)
 
     init {
@@ -205,9 +212,36 @@ class LiveNotify @Autowired constructor(app: Application, val config: OpenAIProp
         // 获取直播间状态缓存，重置liveTime和liveStatus以便在刚订阅时立刻发送开播通知
         val lastTimeRoomStatus = liveStateCache.get().getOrPut(uid.toString()) { copy(liveTime = 0, liveStatus = 0) }
 
+        val currentTime = System.currentTimeMillis() / 1000
+
+        // 计算与上一条记录的时间差值（数据库操作异常不影响轮询）
+        val lastRecord = try {
+            liveRecordService.getLastRecord(uid)
+        } catch (e: Exception) {
+            liveLogger.error("获取 UID: $uid 上一条记录失败: $e")
+            null
+        }
+        val timeDiff = if (lastRecord != null) currentTime - lastRecord.recordTime else 0L
+
         // 标题更改通知
         if (title != lastTimeRoomStatus.title) {
             liveLogger.info("检测到 UID: $uid($name) 直播间标题由 ${lastTimeRoomStatus.title} 更新为 $title")
+
+            // 记录标题更改到数据库（异常不影响后续逻辑）
+            try {
+                liveRecordService.recordEvent(
+                    uid = uid,
+                    roomId = roomId,
+                    eventType = EventType.TITLE_CHANGE,
+                    title = title,
+                    previousTitle = lastTimeRoomStatus.title,
+                    liveStartTime = liveTime,
+                    recordTime = currentTime,
+                    timeDiff = timeDiff,
+                )
+            } catch (e: Exception) {
+                liveLogger.error("记录 UID: $uid 标题更改失败: $e")
+            }
 
             // 不推送敏感主播的直播间标题更改
             if (uid.toString() !in sensitiveLivers.get()) {
@@ -229,11 +263,24 @@ class LiveNotify @Autowired constructor(app: Application, val config: OpenAIProp
             }
         }
 
-        val currentTime = System.currentTimeMillis() / 1000
-
         if (liveStatus == 1 && liveTime > lastTimeRoomStatus.liveTime) {
             // 开播通知
             liveLogger.info("检测到 UID: $uid($name) 开播，本次获取延迟: ${currentTime - liveTime}秒，开播时间戳: $liveTime")
+
+            // 记录开播事件到数据库（开播时间由API返回，设为0时间差值）
+            try {
+                liveRecordService.recordEvent(
+                    uid = uid,
+                    roomId = roomId,
+                    eventType = EventType.LIVE_START,
+                    title = title,
+                    liveStartTime = liveTime,
+                    recordTime = currentTime,
+                    timeDiff = 0L,
+                )
+            } catch (e: Exception) {
+                liveLogger.error("记录 UID: $uid 开播事件失败: $e")
+            }
 
             //  尝试获取封面（为什么有的直播间封面为空）
             val image = try {
@@ -277,6 +324,21 @@ class LiveNotify @Autowired constructor(app: Application, val config: OpenAIProp
             val liveStartTime = lastTimeRoomStatus.liveTime
 
             liveLogger.info("检测到 UID: $uid($name) 下播，开播下播时间戳: $liveStartTime $currentTime")
+
+            // 记录下播事件到数据库
+            try {
+                liveRecordService.recordEvent(
+                    uid = uid,
+                    roomId = roomId,
+                    eventType = EventType.LIVE_STOP,
+                    title = title,
+                    liveStartTime = liveStartTime,
+                    recordTime = currentTime,
+                    timeDiff = timeDiff,
+                )
+            } catch (e: Exception) {
+                liveLogger.error("记录 UID: $uid 下播事件失败: $e")
+            }
 
             informSubscribedGroups(uid.toString(), bot) {
                 if (notifyStopStream) {
@@ -711,4 +773,142 @@ class LiveNotify @Autowired constructor(app: Application, val config: OpenAIProp
             }
         )
     }
+
+//    /**
+//     * 查询直播记录统计
+//     * !liverecord     -> 列出所有有记录的主播
+//     * !liverecord <uid> -> 查看指定主播累计统计
+//     * !liverecord <uid> <YYYY-MM> -> 查看指定主播当月统计
+//     */
+//    @Listener
+//    @FunctionSwitch("LiveNotify")
+//    @ChinesePunctuationReplace
+//    @Filter("!liverecord {{uid,\\d+}} {{month,\\d+-\\d+}}")
+//    suspend fun OneBotNormalGroupMessageEvent.showLiveRecord(
+//        @FilterValue("uid") uid: String,
+//        @FilterValue("month") month: String?,
+//    ) {
+//        val currentTime = System.currentTimeMillis() / 1000
+//        val uidLong = uid.toLongOrNull()
+//        if (uidLong == null) {
+//            directlySend("请输入正确的主播UID！")
+//            return
+//        }
+//
+//        val stats = liveRecordService.getStats(uidLong, currentTime)
+//        val name = getUIDNameString(uidLong.toString())
+//
+//        if (month != null) {
+//            // 查询指定月份的统计
+//            showMonthlyStats(name, month, stats, currentTime)
+//        } else {
+//            // 显示累计统计
+//            showTotalStats(name, uidLong, stats)
+//        }
+//    }
+
+    @Listener
+    @FunctionSwitch("LiveNotify")
+    @ChinesePunctuationReplace
+    @Filter("!liverecord {{uid,\\d+}}")
+    suspend fun OneBotNormalGroupMessageEvent.showLiveRecordWithoutMonth(
+        @FilterValue("uid") uid: String,
+    ) {
+        val currentTime = System.currentTimeMillis() / 1000
+        val uidLong = uid.toLongOrNull()
+        if (uidLong == null) {
+            directlySend("请输入正确的主播UID！")
+            return
+        }
+
+        val stats = liveRecordService.getStats(uidLong, currentTime)
+        val name = getUIDNameString(uidLong.toString())
+        showTotalStats(name, uidLong, stats)
+    }
+
+//    @Listener
+//    @FunctionSwitch("LiveNotify")
+//    @ChinesePunctuationReplace
+//    @Filter("!liverecord")
+//    suspend fun OneBotNormalGroupMessageEvent.showRecordedLivers() {
+//        val uids = liveRecordService.getRecordedUids()
+//        if (uids.isEmpty()) {
+//            directlySend("目前还没有任何直播记录！")
+//            return
+//        }
+//        val names = uids.joinToString("\n") { "${getUIDNameString(it.toString())} (UID: $it)" }
+//        directlySend("本群共有 ${uids.size} 个主播有直播记录：\n" + names + "\n\n可使用 !liverecord <uid> 查看具体统计")
+//    }
+
+    private suspend fun OneBotNormalGroupMessageEvent.showTotalStats(name: String, uid: Long, stats: LiveStats) {
+        if (stats.recordStartTime == 0L) {
+            directlySend("主播 $name 暂无直播记录！")
+            return
+        }
+
+        val titlesPreview =
+            if (stats.historicalTitles.isEmpty()) "暂无" else stats.historicalTitles.takeLast(10).joinToString("\n")
+
+        val liveStatus = if (stats.isCurrentlyLive) {
+            "\n当前状态: 正在直播（已持续 ${stats.currentLiveDurationFormatted}）"
+        } else ""
+
+        directlySend(
+            buildString {
+                appendLine("主播 $name 直播记录统计")
+                append(liveStatus)
+                appendLine()
+
+                appendLine(
+                    """
+                        开始记录时间: ${stats.recordStartTimeFormatted}
+                        累计开播次数: ${stats.totalLiveCount} 次
+                        累计开播时长: ${stats.totalLiveDurationFormatted}
+                    """.trimIndent()
+                )
+
+                appendLine()
+
+                appendLine(
+                    """
+                        【当月统计】
+                        当月开播次数: ${stats.monthlyLiveCount} 次
+                        当月开播时长: ${stats.monthlyLiveDurationFormatted}
+        
+                        【历史标题（最近10条）】
+                    """.trimIndent()
+                )
+
+                appendLine(titlesPreview)
+
+                appendLine()
+                appendLine("可使用 !liverecord $uid YYYY-MM 查看指定月份统计")
+            }
+        )
+    }
+
+//    private suspend fun OneBotNormalGroupMessageEvent.showMonthlyStats(
+//        name: String, month: String, stats: LiveStats, currentTime: Long
+//    ) {
+//        // 验证月份格式
+//        val monthPattern = Regex("\\d{4}-\\d{2}")
+//        if (!monthPattern.matches(month)) {
+//            directlySend("月份格式不正确，请使用 YYYY-MM 格式，例如 2026-01")
+//            return
+//        }
+//
+//        val monthlyTitlesPreview = if (stats.monthlyTitles.isEmpty()) "暂无"
+//        else stats.monthlyTitles.takeLast(10).joinToString("\n")
+//
+//        directlySend(
+//            """
+//                主播 $name $month 直播记录统计
+//
+//                当月开播次数: ${stats.monthlyLiveCount} 次
+//                当月开播时长: ${stats.monthlyLiveDurationFormatted}
+//
+//                【当月标题】
+//            """.trimIndent() + '\n' + monthlyTitlesPreview
+//        )
+//    }
 }
