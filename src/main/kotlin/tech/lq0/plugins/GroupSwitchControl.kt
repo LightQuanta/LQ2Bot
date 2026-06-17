@@ -55,6 +55,7 @@ class GroupSwitchControl {
         )
         chatLogger.info("群 ${groupID}(${content().name}) $authorId(${author().name}) 进行了以下操作: !$operation ${pluginIDs.joinToString()}")
 
+        groupPluginConfig[groupID] = config
         groupPluginConfig.save()
     }
 
