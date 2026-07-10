@@ -5,7 +5,7 @@
 
 ## 使用帮助
 
-[Light_Quanta[2] Bot 使用帮助](https://docs.lq0.tech/zh/bot)
+[Light_Quanta[2] Bot 使用帮助](https://lq0.tech/posts/bot-help/)
 
 ## 部署
 
