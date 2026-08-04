@@ -6,6 +6,7 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -100,6 +101,16 @@ const val GLOBAL_MAXIMUM_SUBSCRIBE_COUNT = 5000
  */
 const val POLLING_DELAY = 30
 
+/**
+ * 直播通知推送限流间隔（毫秒），由推送队列按该速率逐个发送，避免一次性大量推送触发风控
+ */
+const val NOTIFICATION_SEND_INTERVAL = 1000L
+
+/**
+ * 直播通知时效（秒），通知在队列中等待超过该时间即被丢弃，避免 Bot 恢复后批量补发过期通知
+ */
+const val NOTIFICATION_TTL = 60 * 10L
+
 @Component
 class LiveNotify @Autowired constructor(
     app: Application,
@@ -107,6 +118,23 @@ class LiveNotify @Autowired constructor(
     val liveRecordService: LiveRecordService,
 ) {
     val client = createOpenAIClient(config)
+
+    /**
+     * 单条直播通知推送任务
+     */
+    private data class LiveNotifyTask(
+        val uid: String,
+        val groupId: String,
+        val bot: Bot,
+        val messages: Messages,
+        /** 入队时间（毫秒时间戳），用于超时丢弃 */
+        val enqueueTime: Long = System.currentTimeMillis(),
+    )
+
+    /**
+     * 直播通知推送队列，由独立协程按固定速率消费，实现限流
+     */
+    private val notifyChannel = Channel<LiveNotifyTask>(Channel.UNLIMITED)
 
     init {
         liveLogger.info("init")
@@ -183,6 +211,29 @@ class LiveNotify @Autowired constructor(
                 }
             }
         }
+
+        // 启动直播通知推送队列：所有群通知先入队，由这里按固定速率逐个发送
+        CoroutineScope(Dispatchers.IOOrDefault).launch {
+            liveLogger.info("启动直播通知推送队列，发送间隔: ${NOTIFICATION_SEND_INTERVAL}ms")
+            for (task in notifyChannel) {
+                // 队列等待超过时效的任务直接丢弃，防止堆积后批量发送过期通知
+                if (System.currentTimeMillis() - task.enqueueTime > NOTIFICATION_TTL * 1000) {
+                    liveLogger.info(
+                        "丢弃 ${getUIDNameString(task.uid)} 的过期直播通知（队列等待超过 ${NOTIFICATION_TTL} 秒，目标群 ${task.groupId}）"
+                    )
+                    continue
+                }
+
+                try {
+                    task.bot.groupRelation?.group(task.groupId.ID)?.send(task.messages)
+                        ?: throw Exception("获取群 ${task.groupId} 失败")
+                    liveLogger.info("已向群 ${task.groupId} 推送 ${getUIDNameString(task.uid)} 的直播通知")
+                } catch (e: Exception) {
+                    liveLogger.error("向群 ${task.groupId} 推送 ${getUIDNameString(task.uid)} 的直播通知失败: $e")
+                }
+                delay(NOTIFICATION_SEND_INTERVAL)
+            }
+        }
     }
 
     @Listener
@@ -247,14 +298,14 @@ class LiveNotify @Autowired constructor(
             if (uid.toString() !in sensitiveLivers.get()) {
                 if (liveStatus == 1 && lastTimeRoomStatus.liveStatus == liveStatus) {
                     // 开播时标题更改通知
-                    informSubscribedGroups(uid.toString(), bot) {
+                    informSubscribedGroups(uid.toString(), bot, timeDiff) {
                         if (notifyTitleChangeWhileStreaming && filteredTitle.isNotEmpty()) {
                             buildMessages { add("$filteredName 更改了直播间标题: ${lastTimeRoomStatus.title} -> $filteredTitle") }
                         } else null
                     }
                 } else {
                     // 下播时标题更改通知
-                    informSubscribedGroups(uid.toString(), bot) {
+                    informSubscribedGroups(uid.toString(), bot, timeDiff) {
                         if (notifyTitleChangeWhileNotStreaming && filteredTitle.isNotEmpty()) {
                             buildMessages { add("$filteredName 更改了直播间标题: ${lastTimeRoomStatus.title} -> $filteredTitle") }
                         } else null
@@ -291,7 +342,7 @@ class LiveNotify @Autowired constructor(
             }
 
             // 通知对应群聊
-            informSubscribedGroups(uid.toString(), bot) {
+            informSubscribedGroups(uid.toString(), bot, currentTime - liveTime) {
                 buildMessages {
                     add(buildString {
                         append(filteredName)
@@ -340,7 +391,7 @@ class LiveNotify @Autowired constructor(
                 liveLogger.error("记录 UID: $uid 下播事件失败: $e")
             }
 
-            informSubscribedGroups(uid.toString(), bot) {
+            informSubscribedGroups(uid.toString(), bot, currentTime - liveTime) {
                 if (notifyStopStream) {
                     buildMessages {
                         add(buildString {
@@ -363,35 +414,43 @@ class LiveNotify @Autowired constructor(
      * @param bot 机器人实例（用于推送通知）
      * @param messagesBuilder 消息构造器，返回要推送的消息，若为空则不推送
      */
-    suspend fun informSubscribedGroups(uid: String, bot: Bot, messagesBuilder: LiveNotifyGroupConfig.() -> Messages?) {
+    suspend fun informSubscribedGroups(
+        uid: String,
+        bot: Bot,
+        timeDifference: Long,
+        messagesBuilder: LiveNotifyGroupConfig.() -> Messages?,
+    ) {
+        // 延迟过大时视为意外状况，避免进行通知导致风控
+        if (timeDifference > NOTIFICATION_TTL) {
+            return
+        }
+
         // 获取所有订阅了该主播（并且直播推送功能正常启用）的群
         val config = botPermissionConfig.get()
         val groups = liveUIDBind.get()[uid]!!.filter {
             it !in config.groupBlackList
                     && it !in config.groupDisabledList
-                    && "LiveNotify" !in (groupPluginConfig.get(it)?.disabled ?: setOf())
+                    && "LiveNotify" !in (groupPluginConfig[it]?.disabled ?: setOf())
         }
 
-        val succeedGroups = mutableListOf<String>()
+        // 将每个群的通知作为独立任务加入队列，由推送协程按固定速率逐个发送
+        val enqueuedGroups = mutableListOf<String>()
         for (group in groups) {
-            val groupConfig = liveGroupConfig.get(group) ?: LiveNotifyGroupConfig()
+            val groupConfig = liveGroupConfig[group] ?: LiveNotifyGroupConfig()
             val messages = messagesBuilder(groupConfig)
 
             // 消息为空时，不进行通知
             if (messages == null) {
-                succeedGroups += group.ID.toString()
+                enqueuedGroups += group.ID.toString()
                 continue
             }
 
-            try {
-                bot.groupRelation?.group(group.ID)?.send(messages) ?: throw Exception("获取群 ${group.ID} 失败")
-                succeedGroups += group.ID.toString()
-            } catch (e: Exception) {
-                liveLogger.error("向群 ${group.ID} 推送 ${getUIDNameString(uid)} 的直播通知失败: $e")
-            }
-            delay(0.5.seconds)
+            notifyChannel.trySend(LiveNotifyTask(uid, group.ID.toString(), bot, messages))
+            enqueuedGroups += group.ID.toString()
         }
-        liveLogger.info("已向[${succeedGroups.size}/${groups.size}]个群推送 ${getUIDNameString(uid)} 的直播通知: ${succeedGroups.joinToString()}")
+        liveLogger.info(
+            "已将[${enqueuedGroups.size}/${groups.size}]个群的 ${getUIDNameString(uid)} 直播通知加入发送队列: ${enqueuedGroups.joinToString()}"
+        )
     }
 
     var queryStartTime: Long = 0

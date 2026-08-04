@@ -1,5 +1,14 @@
 package tech.lq0.utils
 
+import kotlinx.serialization.DeserializationStrategy
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import love.forte.simbot.common.id.ID
+import love.forte.simbot.component.onebot.v11.core.api.OneBotApi
+import love.forte.simbot.component.onebot.v11.core.api.OneBotApiResult
+import love.forte.simbot.component.onebot.v11.core.api.OneBotMessageOutgoing
+import love.forte.simbot.component.onebot.v11.core.api.SendMsgResult
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotFriendMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupMessageEvent
 import love.forte.simbot.component.onebot.v11.core.event.message.OneBotGroupPrivateMessageEvent
@@ -44,7 +53,16 @@ suspend fun OneBotMessageEvent.directlySend(messages: Messages, foldMessageThres
             ) return
 
             if (foldLongMessage) {
-                content.send(OneBotForwardNode.create(bot.id, bot.name, messages.toOneBotMessage()).toElement())
+                bot.executeData(
+                    SendForwardMsgApi.createGroup(
+                        content.id,
+                        OneBotMessageOutgoing.create(
+                            listOf(OneBotForwardNode.create(bot.id, bot.name, messages.toOneBotMessage()))
+                        )
+                    )
+                )
+
+//                content.send(OneBotForwardNode.create(bot.id, bot.name, messages.toOneBotMessage()).toElement())
             } else {
                 content.send(messages)
             }
@@ -71,7 +89,16 @@ suspend fun OneBotMessageEvent.directlySend(messages: Messages, foldMessageThres
         is OneBotFriendMessageEvent -> {
             val content = content()
             if (foldLongMessage) {
-                reply(OneBotForwardNode.create(bot.id, bot.name, messages.toOneBotMessage()).toElement())
+                bot.executeData(
+                    SendForwardMsgApi.createPrivate(
+                        content.id,
+                        OneBotMessageOutgoing.create(
+                            listOf(OneBotForwardNode.create(bot.id, bot.name, messages.toOneBotMessage()))
+                        )
+                    )
+                )
+
+//                reply(OneBotForwardNode.create(bot.id, bot.name, messages.toOneBotMessage()).toElement())
             } else {
                 reply(messages)
             }
@@ -88,6 +115,112 @@ suspend fun OneBotMessageEvent.directlySend(messages: Messages, foldMessageThres
         }
     }
 }
+
+/**
+ * 转发消息处理，修改自SendMsgApi
+ */
+class SendForwardMsgApi private constructor(
+    override val body: Body,
+) : OneBotApi<SendMsgResult> {
+    override val action: String
+        get() = if (body.messageType == MESSAGE_TYPE_PRIVATE) "send_private_forward_msg" else "send_group_forward_msg"
+
+    override val resultDeserializer: DeserializationStrategy<SendMsgResult>
+        get() = SendMsgResult.serializer()
+
+    override val apiResultDeserializer: DeserializationStrategy<OneBotApiResult<SendMsgResult>>
+        get() = RES_SER
+
+    companion object Factory {
+        const val MESSAGE_TYPE_PRIVATE: String = "private"
+        const val MESSAGE_TYPE_GROUP: String = "group"
+
+        private val RES_SER: KSerializer<OneBotApiResult<SendMsgResult>> =
+            OneBotApiResult.serializer(SendMsgResult.serializer())
+
+        /**
+         * 构建一个 [SendForwardMsgApi].
+         *
+         * @param messageType 消息类型，支持 `private`、`group`，分别对应私聊、群组，如不传入，则根据传入的 `*_id` 参数判断
+         * @param userId 对方 QQ 号（消息类型为 `private` 时需要）
+         * @param groupId 群号（消息类型为 `group` 时需要）
+         * @param message 要发送的内容
+         * @param autoEscape 消息内容是否作为纯文本发送（即不解析 CQ 码），只在 `message` 字段是字符串时有效
+         */
+        @JvmStatic
+        @JvmOverloads
+        fun create(
+            messageType: String,
+            userId: ID?,
+            groupId: ID?,
+            message: OneBotMessageOutgoing,
+            autoEscape: Boolean? = null,
+        ): SendForwardMsgApi = SendForwardMsgApi(Body(messageType, userId, groupId, message, autoEscape))
+
+        /**
+         * 构建一个发送到私聊的 [SendForwardMsgApi].
+         *
+         * @param userId 对方 QQ 号（消息类型为 `private` 时需要）
+         * @param message 要发送的内容
+         * @param autoEscape 消息内容是否作为纯文本发送（即不解析 CQ 码），只在 `message` 字段是字符串时有效
+         */
+        @JvmStatic
+        @JvmOverloads
+        fun createPrivate(
+            userId: ID,
+            message: OneBotMessageOutgoing,
+            autoEscape: Boolean? = null,
+        ): SendForwardMsgApi = create(
+            messageType = MESSAGE_TYPE_PRIVATE,
+            userId = userId,
+            groupId = null,
+            message = message,
+            autoEscape = autoEscape
+        )
+
+        /**
+         * 构建一个发送到群聊的 [SendForwardMsgApi].
+         *
+         * @param groupId 群号（消息类型为 `group` 时需要）
+         * @param message 要发送的内容
+         * @param autoEscape 消息内容是否作为纯文本发送（即不解析 CQ 码），只在 `message` 字段是字符串时有效
+         */
+        @JvmStatic
+        @JvmOverloads
+        fun createGroup(
+            groupId: ID,
+            message: OneBotMessageOutgoing,
+            autoEscape: Boolean? = null,
+        ): SendForwardMsgApi = create(
+            messageType = MESSAGE_TYPE_GROUP,
+            userId = null,
+            groupId = groupId,
+            message = message,
+            autoEscape = autoEscape
+        )
+    }
+
+    /**
+     * @property messageType 消息类型，支持 `private`、`group`，分别对应私聊、群组，如不传入，则根据传入的 `*_id` 参数判断
+     * @property userId 对方 QQ 号（消息类型为 `private` 时需要）
+     * @property groupId 群号（消息类型为 `group` 时需要）
+     * @property message 要发送的内容
+     * @property autoEscape 消息内容是否作为纯文本发送（即不解析 CQ 码），只在 `message` 字段是字符串时有效
+     */
+    @Serializable
+    data class Body(
+        @SerialName("message_type")
+        internal val messageType: String,
+        @SerialName("user_id")
+        internal val userId: ID? = null,
+        @SerialName("group_id")
+        internal val groupId: ID? = null,
+        internal val message: OneBotMessageOutgoing,
+        @SerialName("auto_escape")
+        internal val autoEscape: Boolean? = null,
+    )
+}
+
 
 suspend fun OneBotMessageEvent.replyAndLog(message: String) =
     replyAndLog(messagesOf(message.toText()))
