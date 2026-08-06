@@ -104,12 +104,18 @@ const val POLLING_DELAY = 30
 /**
  * 直播通知推送限流间隔（毫秒），由推送队列按该速率逐个发送，避免一次性大量推送触发风控
  */
-const val NOTIFICATION_SEND_INTERVAL = 1000L
+const val NOTIFICATION_SEND_INTERVAL = 3000L
 
 /**
  * 直播通知时效（秒），通知在队列中等待超过该时间即被丢弃，避免 Bot 恢复后批量补发过期通知
  */
 const val NOTIFICATION_TTL = 60 * 10L
+
+/**
+ * 允许发送通知的最大轮询间隔（秒）。
+ * 距上次成功轮询直播间状态超过该值视为 bot 意外中断/恢复，直接掐断本次通知，避免一上线就批量补发
+ */
+const val NOTIFY_MAX_POLL_GAP = 120L
 
 @Component
 class LiveNotify @Autowired constructor(
@@ -135,6 +141,11 @@ class LiveNotify @Autowired constructor(
      * 直播通知推送队列，由独立协程按固定速率消费，实现限流
      */
     private val notifyChannel = Channel<LiveNotifyTask>(Channel.UNLIMITED)
+
+    /**
+     * 上次成功轮询直播间状态的时间（秒级时间戳），用于判断本次轮询间隔是否正常
+     */
+    private var lastPollTime: Long = 0
 
     init {
         liveLogger.info("init")
@@ -163,6 +174,8 @@ class LiveNotify @Autowired constructor(
 
                     val subscribedUIDs = liveUIDBind.get().filter { it.value.isNotEmpty() }.map { it.key.toLong() }
                     if (subscribedUIDs.isEmpty()) {
+                        // 无订阅时也刷新轮询时间，避免首次订阅已有直播的主播时因间隔过大被掐断
+                        lastPollTime = System.currentTimeMillis() / 1000
                         delayAfterQuery(POLLING_DELAY.seconds)
                         continue
                     }
@@ -192,14 +205,20 @@ class LiveNotify @Autowired constructor(
                     // 获取所有主播的当前直播间信息
                     val roomInfo = responseData.data.map { it.value }
 
+                    // 记录本次成功轮询的时间（秒），供通知时效判断使用
+                    val currentTime = System.currentTimeMillis() / 1000
+
                     // 检测并通知直播间状态改变信息
                     // 不要使用forEach，否则delay会失效
                     for (info in roomInfo) {
-                        info.informStatusChange(bot)
+                        info.informStatusChange(bot, currentTime)
 
                         // 记得更新开播状态更新开播状态更新开播状态！！！
                         liveStateCache.get()[info.uid.toString()] = info
                     }
+
+                    // 更新上次成功轮询时间，作为下次通知时效判定的基准
+                    lastPollTime = currentTime
 
                     UIDNameCache.save()
                     liveStateCache.save()
@@ -256,14 +275,15 @@ class LiveNotify @Autowired constructor(
     /**
      * 根据获取到的单个主播的直播间信息，检测并通知对应的群聊
      */
-    suspend fun RoomInfo.informStatusChange(bot: Bot) {
+    suspend fun RoomInfo.informStatusChange(bot: Bot, currentTime: Long) {
         val filteredName = filteredLiverName
         val filteredTitle = filteredTitle
 
         // 获取直播间状态缓存，重置liveTime和liveStatus以便在刚订阅时立刻发送开播通知
         val lastTimeRoomStatus = liveStateCache.get().getOrPut(uid.toString()) { copy(liveTime = 0, liveStatus = 0) }
 
-        val currentTime = System.currentTimeMillis() / 1000
+        // 距上次成功轮询的时间差（秒），超过阈值则掐断通知，避免中断恢复后批量补发
+        val pollGap = currentTime - lastPollTime
 
         // 计算与上一条记录的时间差值（数据库操作异常不影响轮询）
         val lastRecord = try {
@@ -298,14 +318,14 @@ class LiveNotify @Autowired constructor(
             if (uid.toString() !in sensitiveLivers.get()) {
                 if (liveStatus == 1 && lastTimeRoomStatus.liveStatus == liveStatus) {
                     // 开播时标题更改通知
-                    informSubscribedGroups(uid.toString(), bot, timeDiff) {
+                    informSubscribedGroups(uid.toString(), bot, pollGap) {
                         if (notifyTitleChangeWhileStreaming && filteredTitle.isNotEmpty()) {
                             buildMessages { add("$filteredName 更改了直播间标题: ${lastTimeRoomStatus.title} -> $filteredTitle") }
                         } else null
                     }
                 } else {
                     // 下播时标题更改通知
-                    informSubscribedGroups(uid.toString(), bot, timeDiff) {
+                    informSubscribedGroups(uid.toString(), bot, pollGap) {
                         if (notifyTitleChangeWhileNotStreaming && filteredTitle.isNotEmpty()) {
                             buildMessages { add("$filteredName 更改了直播间标题: ${lastTimeRoomStatus.title} -> $filteredTitle") }
                         } else null
@@ -342,7 +362,7 @@ class LiveNotify @Autowired constructor(
             }
 
             // 通知对应群聊
-            informSubscribedGroups(uid.toString(), bot, currentTime - liveTime) {
+            informSubscribedGroups(uid.toString(), bot, pollGap) {
                 buildMessages {
                     add(buildString {
                         append(filteredName)
@@ -391,7 +411,7 @@ class LiveNotify @Autowired constructor(
                 liveLogger.error("记录 UID: $uid 下播事件失败: $e")
             }
 
-            informSubscribedGroups(uid.toString(), bot, currentTime - liveTime) {
+            informSubscribedGroups(uid.toString(), bot, pollGap) {
                 if (notifyStopStream) {
                     buildMessages {
                         add(buildString {
@@ -412,16 +432,20 @@ class LiveNotify @Autowired constructor(
      * 向订阅了指定主播的所有群推送消息
      * @param uid 主播 UID
      * @param bot 机器人实例（用于推送通知）
+     * @param pollGapSeconds 距上次成功轮询直播间状态的时间差（秒），超过阈值则掐断本次通知
      * @param messagesBuilder 消息构造器，返回要推送的消息，若为空则不推送
      */
     suspend fun informSubscribedGroups(
         uid: String,
         bot: Bot,
-        timeDifference: Long,
+        pollGapSeconds: Long,
         messagesBuilder: LiveNotifyGroupConfig.() -> Messages?,
     ) {
-        // 延迟过大时视为意外状况，避免进行通知导致风控
-        if (timeDifference > NOTIFICATION_TTL) {
+        // 距上次成功轮询超过阈值视为 bot 中断恢复，直接掐断，避免一上线就批量补发通知
+        if (pollGapSeconds > NOTIFY_MAX_POLL_GAP) {
+            liveLogger.info(
+                "距上次成功轮询已 $pollGapSeconds 秒（超过 $NOTIFY_MAX_POLL_GAP 秒），掐断 UID: $uid 的直播通知"
+            )
             return
         }
 
