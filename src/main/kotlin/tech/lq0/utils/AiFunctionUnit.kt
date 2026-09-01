@@ -150,7 +150,7 @@ suspend fun OneBotNormalGroupMessageEvent.invokeFunction(call: FunctionCall) {
 }
 
 suspend fun OneBotNormalGroupMessageEvent.invalidCall() {
-    directlySend("无法识别要调用的功能，请访问 https://docs.lq0.tech/bot 查看帮助")
+    directlySend("无法识别要调用的功能，请访问 https://lq0.tech/posts/bot-help 查看帮助")
 }
 
 class PromptBuilder {
