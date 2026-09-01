@@ -138,6 +138,11 @@ val liveStateCache = createBotConfig(mutableMapOf<String, RoomInfo>(), "LiveNoti
  */
 val liveUIDBind = createBotConfig(mutableMapOf<String, MutableSet<String>>(), "LiveNotify", "liveUIDBind.json")
 
+/**
+ * 单个群最多允许订阅的主播数量
+ */
+const val GROUP_MAXIMUM_SUBSCRIBE_COUNT = 5
+
 @Serializable
 data class LiveNotifyGroupConfig(
     /** 是否通知主播下播 */
@@ -166,6 +171,9 @@ data class LiveNotifyGroupConfig(
 
     /** 神秘配置项 */
     var hazelTimeUnit: Boolean = false,
+
+    /** 单群允许订阅的主播数量 */
+    var maxSubscribeCount: Int = GROUP_MAXIMUM_SUBSCRIBE_COUNT,
 )
 
 /**

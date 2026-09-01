@@ -87,11 +87,6 @@ fun getTimeDiffStr(startTime: Long, endTime: Long, hazel: Boolean = false): Stri
 }
 
 /**
- * 单个群最多允许订阅的主播数量
- */
-const val GROUP_MAXIMUM_SUBSCRIBE_COUNT = 300
-
-/**
  * 全局最多允许订阅的主播数量
  */
 const val GLOBAL_MAXIMUM_SUBSCRIBE_COUNT = 5000
@@ -238,7 +233,7 @@ class LiveNotify @Autowired constructor(
                 // 队列等待超过时效的任务直接丢弃，防止堆积后批量发送过期通知
                 if (System.currentTimeMillis() - task.enqueueTime > NOTIFICATION_TTL * 1000) {
                     liveLogger.info(
-                        "丢弃 ${getUIDNameString(task.uid)} 的过期直播通知（队列等待超过 ${NOTIFICATION_TTL} 秒，目标群 ${task.groupId}）"
+                        "丢弃 ${getUIDNameString(task.uid)} 的过期直播通知（队列等待超过 $NOTIFICATION_TTL 秒，目标群 ${task.groupId}）"
                     )
                     continue
                 }
@@ -451,7 +446,8 @@ class LiveNotify @Autowired constructor(
 
         // 获取所有订阅了该主播（并且直播推送功能正常启用）的群
         val config = botPermissionConfig.get()
-        val groups = liveUIDBind.get()[uid]!!.filter {
+        val subscribedGroups = liveUIDBind.get()[uid]!!
+        val groups = subscribedGroups.filter {
             it !in config.groupBlackList
                     && it !in config.groupDisabledList
                     && "LiveNotify" !in (groupPluginConfig[it]?.disabled ?: setOf())
@@ -461,13 +457,16 @@ class LiveNotify @Autowired constructor(
         val enqueuedGroups = mutableListOf<String>()
         for (group in groups) {
             val groupConfig = liveGroupConfig[group] ?: LiveNotifyGroupConfig()
-            val messages = messagesBuilder(groupConfig)
 
-            // 消息为空时，不进行通知
-            if (messages == null) {
-                enqueuedGroups += group.ID.toString()
+            // 订阅数量超限时跳过通知
+            val subscribed = liveUIDBind.get().filter { group in it.value }.keys
+            if (subscribed.size > groupConfig.maxSubscribeCount) {
+                liveLogger.warn("群 $group 订阅的直播 UID 数量超过限制，停止推送直播通知")
                 continue
             }
+
+            // 消息为空时，不进行通知
+            val messages = messagesBuilder(groupConfig) ?: continue
 
             notifyChannel.trySend(LiveNotifyTask(uid, group.ID.toString(), bot, messages))
             enqueuedGroups += group.ID.toString()
@@ -500,7 +499,7 @@ class LiveNotify @Autowired constructor(
         val subscribed = uidBind.filter { groupId.toString() in it.value }.keys
 
         // 单个群最大订阅数量限制
-        if (subscribed.size >= GROUP_MAXIMUM_SUBSCRIBE_COUNT) {
+        if (subscribed.size >= (liveGroupConfig[groupId.toString()] ?: LiveNotifyGroupConfig()).maxSubscribeCount) {
             directlySend("本群订阅的主播数量已达到最大值！")
             return
         }
@@ -511,8 +510,10 @@ class LiveNotify @Autowired constructor(
             return
         }
 
+        val groupMaxSubscribeCount = (liveGroupConfig[groupId.toString()] ?: LiveNotifyGroupConfig()).maxSubscribeCount
+
         val limitedSubscribeList = (uidList - subscribed)
-            .take((GROUP_MAXIMUM_SUBSCRIBE_COUNT - subscribed.size).coerceAtLeast(0))
+            .take((groupMaxSubscribeCount - subscribed.size).coerceAtLeast(0))
             .take((GLOBAL_MAXIMUM_SUBSCRIBE_COUNT - uidBind.size).coerceAtLeast(0))
 
         for (uid in limitedSubscribeList) {
@@ -690,6 +691,7 @@ class LiveNotify @Autowired constructor(
                 显示直播分区: ${if (liveConfig.showLiveArea) "开" else "关"}
                 直播时通知直播间标题更改: ${if (liveConfig.notifyTitleChangeWhileStreaming) "开" else "关"}
                 非直播时通知直播间标题更改: ${if (liveConfig.notifyTitleChangeWhileNotStreaming) "开" else "关"}
+                订阅主播上限: ${liveConfig.maxSubscribeCount}
             """.trimIndent()
         )
     }
@@ -855,6 +857,22 @@ class LiveNotify @Autowired constructor(
                 "该群订阅的${subscribedUIDs.size}个主播: ${nameOrUIDs.joinToString()}"
             }
         )
+    }
+
+    @Listener
+    @RequireBotAdmin
+    @FunctionSwitch("LiveNotify")
+    @ChinesePunctuationReplace
+    @Filter("""!subscribelimit {{limit,\d.+}}""")
+    suspend fun OneBotNormalGroupMessageEvent.subscribeLimit(@FilterValue("limit") limit: String) {
+        val limit = limit.toIntOrNull()?.coerceIn(1..2147483647) ?: 1
+        val config = liveGroupConfig.getOrPut(groupId.toString()) { LiveNotifyGroupConfig() }
+        config.maxSubscribeCount = limit
+
+        liveLogger.info("将群 $groupId 的主播订阅上限设置为 $limit")
+        directlySend("已将该群订阅主播上限设置为$limit")
+
+        liveGroupConfig.save()
     }
 
 //    /**
