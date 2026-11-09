@@ -208,8 +208,16 @@ class LiveNotify @Autowired constructor(
                     for (info in roomInfo) {
                         info.informStatusChange(bot, currentTime)
 
+                        val oldState = liveStateCache.get()[info.uid.toString()]
+
                         // 记得更新开播状态更新开播状态更新开播状态！！！
-                        liveStateCache.get()[info.uid.toString()] = info
+                        liveStateCache.get()[info.uid.toString()] =
+                            if (info.name.trim().isEmpty() && oldState != null) {
+                                // 牛魔的b站api怎么还能偶尔返回空名称的
+                                info.copy(name = oldState.name)
+                            } else {
+                                info
+                            }
                     }
 
                     // 更新上次成功轮询时间，作为下次通知时效判定的基准
